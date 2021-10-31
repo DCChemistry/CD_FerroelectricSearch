@@ -60,9 +60,11 @@ def main():
     else:
         results = ReadJSONFile("NonRadSearch.json")
     
-    resultsCD = CheckForCD(results)
+    resultsCD = MultiThreadedCheckForCD(results)
 
     SaveDictAsJSON("NonRadSearchCDCandidates.json", resultsCD, indent=4)
 
 if __name__ == "__main__": #if this file is run, call main function
-    main()
+    import cProfile
+    cProfile.run("main()")
+    #main()

@@ -1,10 +1,12 @@
+from os import cpu_count
 from pymatgen.core.composition import Composition
 import numpy as np #added just in case - may add numpy objects later
 import re
+import concurrent.futures
+import multiprocessing
+import math
 
-alphabetRegex = re.compile('[a-zA-Z]+') #need this for removing numbers from oxidation states (see below)
-#- a-zA-Z gets all letters (upper and lowercase), and the subsequent '+' reads those letters as a group (otherwise
-#you get hellish results), e.g. ["Z", "n"]
+
 
 def OxidationStateCalc(formula):
     """Returns a pymatgen list-like object of elements with their respective oxidation states (OS) from a given chemical
@@ -21,6 +23,10 @@ def SiteCentredCO(material):
     to be undergoing CD) from a given formula."""
     oxStates = OxidationStateCalc(material)
 
+    alphabetRegex = re.compile('[a-zA-Z]+') #need this for removing numbers from oxidation states (see below)
+    #- a-zA-Z gets all letters (upper and lowercase), and the subsequent '+' reads those letters as a group (otherwise
+    #you get hellish results), e.g. ["Z", "n"]
+
     #v removes the charge from each element, e.g. Fe2+ and Fe3+ -> Fe and Fe
     oxStates = [alphabetRegex.findall(element)[0] for element in oxStates]
     #^ alphabetRegex.findall() looks for the occurence of letters in each OS and returns an array with the string.
@@ -34,12 +40,12 @@ def SiteCentredCO(material):
         if(instances>1):
             return material, element
 
+
 def CheckForCD(results):
-    """Takes in a list and returns a dictionary of materials with they key as the material that seems to have undergone charge
-    disproportionation (CD), and the value as the element undergoing CD."""
-    
+
     siteCOmaterials = {}
-    for i, material in enumerate(results):
+    i = 0
+    for material in results:
         try:
             formula = material["pretty_formula"]
             COmaterial, CDelement = SiteCentredCO(formula)
@@ -49,16 +55,45 @@ def CheckForCD(results):
                     "Crystal system": material["spacegroup.crystal_system"],
                     "CD Element": CDelement
             }
-
+            i+=1
+            print(i)
         except TypeError:
             pass
             #TypeError has occurred - cannot unpack non-iterable NoneType object. Material was {material}"
 
         #v this is done to show that the program is currently on this function, and that it works
-        if(i%100 == 0):   
-            print(i)
 
-        if(i==500):
+        if(i==50):
             break
+    return siteCOmaterials 
 
-    return siteCOmaterials   
+
+def MultiThreadedCheckForCD(results):
+    
+    processor_count = multiprocessing.cpu_count()
+
+    noOfTasks = 16*processor_count
+
+    tasksPerProcessor = math.floor(len(results)/noOfTasks)
+
+    tasks = []
+    for i in range(noOfTasks):
+        
+        tasks.append(results[i*tasksPerProcessor: min((i+1)*tasksPerProcessor, len(results))])
+        #regarding min(), it returns the lower of the two: either (i+1)*tasksPerProcessor, or the length of the results array (using this
+        #also takes the 'remaining tasks' into account).
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+
+        futures = []
+        for i in range(noOfTasks):
+            futures.append(executor.submit(CheckForCD, tasks[i]))
+            #^ calls the CheckForCD function with each tasks created above from the executor thread that the process pool is on.
+
+        siteCOmaterials = {}
+        for future in futures:
+            siteCOmaterials.update(future.result())
+            #dict.update is analogous to append for a list, and future.result() returns the results from each task (essentially squashing
+            #together all the individual task results into one place).
+        
+        return siteCOmaterials
