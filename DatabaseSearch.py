@@ -22,9 +22,9 @@ def ListOfTheElements(elementsExcluded=None):
     
     return symbols
 
-def SaveDictAsJSON(fileName, dictionary):
+def SaveDictAsJSON(fileName, dictionary, indent=None):
     with open(fileName, "w") as f:
-        f.write(dumps(dictionary)) #don't need to read this since it's just a 'checkpoint'
+        f.write(dumps(dictionary, indent=indent)) #don't need to read this since it's just a 'checkpoint'
 
 def ReadJSONFile(fileName):
     with open(fileName, "r") as f:
@@ -49,7 +49,7 @@ def main():
         results = None #done so that results exists outside the scope of the with block
         with MPRester(APIkey) as mpr:
             criteria = {"elements": {"$in": nonRadElements}} #want to find materials that contain any of the listed elements, hence $in
-            properties = ["material_id", "pretty_formula", "spacegroup.symbol"]
+            properties = ["material_id", "pretty_formula", "spacegroup.symbol", "spacegroup.crystal_system"]
             results = mpr.query(criteria, properties, chunk_size=10000) #it's ok to change chunk_size since I'm asking for small things -
                                                                         #it speeds things up tremendously (asking for larger amounts of
                                                                         #data less often - latency - sending info back and forth takes
@@ -57,9 +57,12 @@ def main():
 
         SaveDictAsJSON("NonRadSearch.json", results)
 
-        resultsCD = CheckForCD(results)
+    else:
+        results = ReadJSONFile("NonRadSearch.json")
+    
+    resultsCD = CheckForCD(results)
 
-        SaveDictAsJSON("NonRadSearchCDCandidates.json", resultsCD)
+    SaveDictAsJSON("NonRadSearchCDCandidates.json", resultsCD, indent=4)
 
 if __name__ == "__main__": #if this file is run, call main function
     main()

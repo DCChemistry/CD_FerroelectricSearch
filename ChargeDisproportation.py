@@ -43,7 +43,12 @@ def CheckForCD(results):
         try:
             formula = material["pretty_formula"]
             COmaterial, CDelement = SiteCentredCO(formula)
-            siteCOmaterials[COmaterial] = CDelement
+            siteCOmaterials[material["material_id"]] = {
+                    "Formula": COmaterial,
+                    "Space group": material["spacegroup.symbol"],
+                    "Crystal system": material["spacegroup.crystal_system"],
+                    "CD Element": CDelement
+            }
 
         except TypeError:
             pass
