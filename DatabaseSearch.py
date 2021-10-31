@@ -6,7 +6,10 @@ import matplotlib.pyplot as plt
 from json_tricks import dumps, loads #the json module doesn't support non-standard types (such as the output from MAPI),
                                      #but json_tricks does
 
-ironOxides = ["FeO", "Fe3O4", "LuFe2O4", "Fe2O3", "BiAlO3", "BiInO3"]
+class MaterialProperties:
+    def __init__(self, formula, spaceGroup):
+        self.formula = formula
+        self.spaceGroup = spaceGroup
 
 def OxidationStateCalc(formula):
     """Returns a pymatgen list-like object of elements with their respective oxidation states (OS) from a given chemical
@@ -25,17 +28,17 @@ def SiteCentredCO(material):
     print(f"Elements and their OS: {oxStates}")
     oxStates = [element[:-2] for element in oxStates] #removes the charge from each element, e.g. Fe2+ and Fe3+ -> Fe and Fe
     
-    print(f"\noxStates: {oxStates}")###############
+    print(f"\noxStates: {oxStates}")
     elements = list(set(oxStates)) #done to remove duplicates - this is done to avoid analysing an element for CD more than once
     for element in elements:
-        print(f"Elements: {elements}")##############
-        print(f"Testing element: {element}")#################
+        print(f"Elements: {elements}")
+        print(f"Testing element: {element}")
         instances = oxStates.count(element) #originally, this was "elements.count(element)", which was using the non-duplicate
-                                            #list. Things why the try below always failed, since no CO materials could ever be
+                                            #list. Hence why the try below always failed, since no CO materials could ever be
                                             #found
         print(f"Instances of {element}: {instances}")
         if(instances>1):
-            print(f"CD element: {element}")############
+            print(f"CD element: {element}")
             return material, element
 
 def CheckForCD(listOfMaterials):
@@ -71,11 +74,12 @@ def ListOfTheElements(elementsExcluded=None):
 def CleanUpResults(results):
     """Will take a MAPI output, take only the values of each dictionary element, and make the elements into lists of
     those values - it makes the results easier to deal with."""
-    resultsClean = [list(results[results.index(i)].values()) for i in results]
+    resultsClean = [MaterialProperties(results[results.index(i)].values()) for i in results]
     #Regarding the above line - i refers to an element in the results list, so results.index(i) means 'return the index
     #from the results list using the element i', which is then being used to acquire the values of each element (where
     #each element in the list is a dictionary), since the values give me the actual results - in this case, the formula
-    #and space group symbol. That value then needs to be converted to a list, otherwise the type would be "dict_values".
+    #and space group symbol. The value is then converted into a MaterialProperties object (see class definition above)
+    #for easy access to both the formula of the material and its space group symbol.
     
     resultsCleanTranspose = list(zip(*resultsClean)) #separates properties into separate lists, e.g.
     #one element will be a list of "pretty_formula"s and the other would be "spacegroup.symbol"s.
@@ -112,7 +116,7 @@ with MPRester(APIkey) as mpr:
     #in making a general function.
 
     with open("NonRadSearch.txt", "w") as f: #this is the thing I'm working on now
-        f.write(dumps())
+        f.write(dumps(, indents=4))
     
 #new resultsCD using 'CleanUpResults':
 resultsClean = CleanUpResults(results)
