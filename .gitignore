@@ -1,1 +1,3 @@
 APIkey.txt
+*.json
+__pycache__
