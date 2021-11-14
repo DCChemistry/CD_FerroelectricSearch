@@ -44,27 +44,31 @@ def SiteCentredCO(material):
 def CheckForCD(results):
 
     siteCOmaterials = {}
-    i = 0
+
+    #i=0
+
     for material in results:
         try:
             formula = material["pretty_formula"]
             COmaterial, CDelement = SiteCentredCO(formula)
+            print(f"{formula} is FE.") #printing FE material to check for signs of life, & to confirm all is working as it should
             siteCOmaterials[material["material_id"]] = {
-                    "Formula": COmaterial,
-                    "Space group": material["spacegroup.symbol"],
-                    "Crystal system": material["spacegroup.crystal_system"],
-                    "CD Element": CDelement
+                    "pretty_formula": COmaterial,
+                    "spacegroup.symbol": material["spacegroup.symbol"],
+                    "spacegroup.crystal_system": material["spacegroup.crystal_system"],
+                    "CDelement": CDelement
             }
-            i+=1
-            print(i)
+
+            #i+=1
+            #print(i)
+
         except TypeError:
             pass
             #TypeError has occurred - cannot unpack non-iterable NoneType object. Material was {material}"
 
         #v this is done to show that the program is currently on this function, and that it works
 
-        if(i==50):
-            break
+
     return siteCOmaterials 
 
 
@@ -74,26 +78,28 @@ def MultiThreadedCheckForCD(results):
 
     noOfTasks = 16*processor_count
 
-    tasksPerProcessor = math.floor(len(results)/noOfTasks)
+    materialsPerTask = math.floor(len(results)/noOfTasks)
 
     tasks = []
     for i in range(noOfTasks):
-        
-        tasks.append(results[i*tasksPerProcessor: min((i+1)*tasksPerProcessor, len(results))])
+
+        tasks.append(results[i*materialsPerTask: min((i+1)*materialsPerTask, len(results))])
         #regarding min(), it returns the lower of the two: either (i+1)*tasksPerProcessor, or the length of the results array (using this
         #also takes the 'remaining tasks' into account).
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
 
         futures = []
-        for i in range(noOfTasks):
+        for i in range(noOfTasks): #and thus, the length of futures = noOfTasks
             futures.append(executor.submit(CheckForCD, tasks[i]))
-            #^ calls the CheckForCD function with each tasks created above from the executor thread that the process pool is on.
+            #^ calls the CheckForCD function with each task created above from the executor thread that the process pool is on.
 
         siteCOmaterials = {}
         for future in futures:
             siteCOmaterials.update(future.result())
+            print(f"Task {future} complete!")
             #dict.update is analogous to append for a list, and future.result() returns the results from each task (essentially squashing
             #together all the individual task results into one place).
         
         return siteCOmaterials
+
