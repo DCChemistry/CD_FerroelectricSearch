@@ -1,11 +1,11 @@
-from os import cpu_count
+import os
 from pymatgen.core.composition import Composition
 import numpy as np #added just in case - may add numpy objects later
 import re
 import concurrent.futures
 import multiprocessing
 import math
-
+from DatabaseSearch import SaveDictAsJSON, ReadJSONFile
 
 
 def OxidationStateCalc(formula):
@@ -40,66 +40,72 @@ def SiteCentredCO(material):
         if(instances>1):
             return material, element
 
+class CheckForCD:
 
-def CheckForCD(results):
+    def __init__(self, results, fileName):
+        self.fileName = fileName
+        processor_count = multiprocessing.cpu_count()
+        self.noOfTasks = 64*processor_count
+        self.MultiThreadedCheckForCD(results)
 
-    siteCOmaterials = {}
+    def FileMerger(self):
+        """Merges the task files together into one, and deletes the task files."""
+        mergedFileDict = {}
+        for i in range(self.noOfTasks):
+            taskResults = ReadJSONFile(f"{self.fileName}_task_{i}.json")
+            mergedFileDict.update(dict(taskResults))
 
-    #i=0
+        SaveDictAsJSON(f"{self.fileName}CDCandidates.json", mergedFileDict, indent=4)
+        for i in range(self.noOfTasks):
+            os.remove(f"{self.fileName}_task_{i}.json")
 
-    for material in results:
-        try:
-            formula = material["pretty_formula"]
-            COmaterial, CDelement = SiteCentredCO(formula)
-            print(f"{formula} is FE.") #printing FE material to check for signs of life, & to confirm all is working as it should
-            siteCOmaterials[material["material_id"]] = {
-                    "pretty_formula": COmaterial,
-                    "spacegroup.symbol": material["spacegroup.symbol"],
-                    "spacegroup.crystal_system": material["spacegroup.crystal_system"],
-                    "CDelement": CDelement
-            }
+    def CheckForCDTaskMaster(self, results, noOfTasks, taskNo):
+        SaveDictAsJSON(f"{self.fileName}_task_{taskNo}.json", self.CheckForCD(results))
+        print(f"Task {taskNo}/{noOfTasks} complete!")
 
-            #i+=1
-            #print(i)
-
-        except TypeError:
-            pass
-            #TypeError has occurred - cannot unpack non-iterable NoneType object. Material was {material}"
-
-        #v this is done to show that the program is currently on this function, and that it works
-
-
-    return siteCOmaterials 
-
-
-def MultiThreadedCheckForCD(results):
-    
-    processor_count = multiprocessing.cpu_count()
-
-    noOfTasks = 16*processor_count
-
-    materialsPerTask = math.floor(len(results)/noOfTasks)
-
-    tasks = []
-    for i in range(noOfTasks):
-
-        tasks.append(results[i*materialsPerTask: min((i+1)*materialsPerTask, len(results))])
-        #regarding min(), it returns the lower of the two: either (i+1)*tasksPerProcessor, or the length of the results array (using this
-        #also takes the 'remaining tasks' into account).
-
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-
-        futures = []
-        for i in range(noOfTasks): #and thus, the length of futures = noOfTasks
-            futures.append(executor.submit(CheckForCD, tasks[i]))
-            #^ calls the CheckForCD function with each task created above from the executor thread that the process pool is on.
+    def CheckForCD(self, results):
 
         siteCOmaterials = {}
-        for future in futures:
-            siteCOmaterials.update(future.result())
-            print(f"Task {future} complete!")
-            #dict.update is analogous to append for a list, and future.result() returns the results from each task (essentially squashing
-            #together all the individual task results into one place).
-        
-        return siteCOmaterials
 
+        for material in results:
+            try:
+                formula = material["pretty_formula"]
+                COmaterial, CDelement = SiteCentredCO(formula)
+                siteCOmaterials[material["material_id"]] = {
+                        "pretty_formula": COmaterial,
+                        "spacegroup.symbol": material["spacegroup.symbol"],
+                        "spacegroup.crystal_system": material["spacegroup.crystal_system"],
+                        "e_above_hull": material["e_above_hull"],
+                        "CDelement": CDelement
+                }
+
+            except TypeError:
+                pass
+                #TypeError has occurred - cannot unpack non-iterable NoneType object. Material was {material}"
+        
+            #v this is done to show that the program is currently on this function, and that it works
+
+            #if((i+1)%100 == 0):   WOULD LIKE TO GET THIS TO WORK - NEED TASKNO TO MATCH THE TASKNO IN THE MULTITHREADED VERSION (SEE BELOW)
+            #    print(f"{i+1}/{len(results)} of task {taskNo} done.")  
+
+        return siteCOmaterials 
+
+
+    def MultiThreadedCheckForCD(self, results):
+        
+
+
+        materialsPerTask = math.floor(len(results)/self.noOfTasks)
+
+        tasks = []
+        for i in range(self.noOfTasks):
+
+            tasks.append(results[i*materialsPerTask: min((i+1)*materialsPerTask, len(results))])
+            #regarding min(), it returns the lower of the two: either (i+1)*tasksPerProcessor, or the length of the results array (using this
+            #also takes the 'remaining tasks' into account).
+
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+
+            for i in range(self.noOfTasks): #and thus, the length of futures = noOfTasks
+                executor.submit(self.CheckForCDTaskMaster, tasks[i], self.noOfTasks, i)
+                #^ calls the CheckForCD function with each task created above from the executor thread that the process pool is on.

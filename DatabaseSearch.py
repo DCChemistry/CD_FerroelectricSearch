@@ -23,13 +23,6 @@ def ListOfTheElements(elementsExcluded=None):
     
     return symbols
 
-def SaveDictAsJSON(fileName, dictionary, indent=None):
-    with open(fileName, "w") as f:
-        f.write(dumps(dictionary, indent=indent)) #don't need to read this since it's just a 'checkpoint'
-
-def ReadJSONFile(fileName):
-    with open(fileName, "r") as f:
-        return loads(f.read()) #loads() returns the string from f.read() as dict
 
 def NonRadElements():
     """Returns all of the non-radioactive elements, and the radioactive ones as a separate result"""
@@ -38,6 +31,16 @@ def NonRadElements():
                                                                             #variables, and then converting them into strings
     nonRadElements = ListOfTheElements(radElements) #list of elements to search with
     return nonRadElements, radElementSymbols
+
+
+def SaveDictAsJSON(fileName, dictionary, indent=None):
+    with open(fileName, "w") as f:
+        f.write(dumps(dictionary, indent=indent)) #don't need to read this since it's just a 'checkpoint'
+
+def ReadJSONFile(fileName):
+    with open(fileName, "r") as f:
+        return loads(f.read()) #loads() returns the string from f.read() as dict
+
 
 def DatabaseSearch(searchFileName, elementList, excludeList):
 
@@ -58,7 +61,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList):
             # and $gt is simply 'greater than' - ferroelectrics are insulators, and DFT underestimates band gaps greatly,
             # so if the band gap is > 0, that means the band gap is sizeable (likely insulator). NEW, RUN THIS SOON
 
-            properties = ["material_id", "pretty_formula", "spacegroup.symbol", "spacegroup.crystal_system"]
+            properties = ["material_id", "pretty_formula", "spacegroup.symbol", "spacegroup.crystal_system", "e_above_hull"]
             results = mpr.query(criteria, properties, chunk_size=10000) #it's ok to change chunk_size since I'm asking for small things -
                                                                         #it speeds things up tremendously (asking for larger amounts of
                                                                         #data less often - latency - sending info back and forth takes
@@ -70,13 +73,9 @@ def DatabaseSearch(searchFileName, elementList, excludeList):
         results = ReadJSONFile(f"{searchFileName}.json") #[:1000] #just want to run program with the first 1000 results - remove slice later
     
     t1 = time.time()
-    resultsCD = MultiThreadedCheckForCD(results)
+    CheckForCD(results, searchFileName) #this is a little scuffed, but it works. it used to be resultsCD = ...
     t2 = time.time()
     print(f"Task took {t2-t1:.2f} s")
-
-    SaveDictAsJSON(f"{searchFileName}CDCandidates.json", resultsCD, indent=4)
-
-    return resultsCD
 
 
 def HistogramMaker(CDResults):
@@ -104,6 +103,10 @@ def main():
     #DatabaseSearch("NonRadSearch", nonRadElements, radElements)
     popularElements = ["Mn", "V", "Fe", "Ni", "Co", "Cu", "Bi", "Ti", "Eu", "Sm", "Yb"]
     DatabaseSearch("popularCOElemSearch", popularElements, radElements)
+    #transitionMetals = list(np.arange(21, 30+1))+list(np.arange(39, 48+1))+list(np.arange(72, 80+1))+list(np.arange(104, 112+1))
+    #fBlock = list(np.arange(57, 71+1))+list(np.arange(89, 103+1))
+    #semiMetals = 
+    #DatabaseSearch("FullSearch", , radElements)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     import cProfile
