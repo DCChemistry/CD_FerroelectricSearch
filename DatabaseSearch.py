@@ -42,7 +42,7 @@ def ReadJSONFile(fileName):
         return loads(f.read()) #loads() returns the string from f.read() as dict
 
 
-def DatabaseSearch(searchFileName, elementList, excludeList):
+def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=256):
 
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
         
@@ -73,7 +73,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList):
         results = ReadJSONFile(f"{searchFileName}.json") #[:1000] #just want to run program with the first 1000 results - remove slice later
     
     t1 = time.time()
-    CheckForCD(results, searchFileName) #this is a little scuffed, but it works. it used to be resultsCD = ...
+    CheckForCD(results, searchFileName, noOfTasks) #this is a little scuffed, but it works. it used to be resultsCD = ...
     t2 = time.time()
     print(f"Task took {t2-t1:.2f} s")
 
@@ -100,9 +100,9 @@ def HistogramMaker(CDResults):
 
 def main():
     nonRadElements, radElements = NonRadElements()
-    #DatabaseSearch("NonRadSearch", nonRadElements, radElements)
-    popularElements = ["Mn", "V", "Fe", "Ni", "Co", "Cu", "Bi", "Ti", "Eu", "Sm", "Yb"]
-    DatabaseSearch("popularCOElemSearch", popularElements, radElements)
+    DatabaseSearch("NonRadSearch", nonRadElements, radElements, noOfTasks=1024)
+    #popularElements = ["Mn", "V", "Fe", "Ni", "Co", "Cu", "Bi", "Ti", "Eu", "Sm", "Yb"]
+    #DatabaseSearch("popularCOElemSearch", popularElements, radElements)
     #transitionMetals = list(np.arange(21, 30+1))+list(np.arange(39, 48+1))+list(np.arange(72, 80+1))+list(np.arange(104, 112+1))
     #fBlock = list(np.arange(57, 71+1))+list(np.arange(89, 103+1))
     #semiMetals = 

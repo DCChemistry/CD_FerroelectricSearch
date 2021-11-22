@@ -42,10 +42,10 @@ def SiteCentredCO(material):
 
 class CheckForCD:
 
-    def __init__(self, results, fileName):
+    def __init__(self, results, fileName, noOfTasks):
         self.fileName = fileName
         processor_count = multiprocessing.cpu_count()
-        self.noOfTasks = 64*processor_count
+        self.noOfTasks = noOfTasks
         self.MultiThreadedCheckForCD(results)
 
     def FileMerger(self):
@@ -59,9 +59,9 @@ class CheckForCD:
         for i in range(self.noOfTasks):
             os.remove(f"{self.fileName}_task_{i}.json")
 
-    def CheckForCDTaskMaster(self, results, noOfTasks, taskNo):
+    def CheckForCDTaskMaster(self, results, taskNo):
         SaveDictAsJSON(f"{self.fileName}_task_{taskNo}.json", self.CheckForCD(results))
-        print(f"Task {taskNo}/{noOfTasks} complete!")
+        print(f"Task {taskNo}/{self.noOfTasks} complete!")
 
     def CheckForCD(self, results):
 
@@ -107,5 +107,6 @@ class CheckForCD:
         with concurrent.futures.ProcessPoolExecutor() as executor:
 
             for i in range(self.noOfTasks): #and thus, the length of futures = noOfTasks
-                executor.submit(self.CheckForCDTaskMaster, tasks[i], self.noOfTasks, i)
+                executor.submit(self.CheckForCDTaskMaster, tasks[i], i)
                 #^ calls the CheckForCD function with each task created above from the executor thread that the process pool is on.
+        self.FileMerger() #merges the task files into a new, single file, and deletes the task files.
