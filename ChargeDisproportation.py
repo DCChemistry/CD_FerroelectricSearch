@@ -5,7 +5,7 @@ import re
 import concurrent.futures
 import multiprocessing
 import math
-from DatabaseSearch import SaveDictAsJSON, ReadJSONFile
+from Util import SaveDictAsJSON, ReadJSONFile
 
 
 def OxidationStateCalc(formula):
@@ -52,7 +52,7 @@ class CheckForCD:
         """Merges the task files together into one, and deletes the task files."""
         mergedFileDict = {}
         for i in range(self.noOfTasks):
-            taskResults = ReadJSONFile(f"{self.fileName}_task_{i}.json")
+            taskResults = ReadJSONFile(f"{self.fileName}_task_{i}")
             mergedFileDict.update(dict(taskResults))
 
         SaveDictAsJSON(f"{self.fileName}CDCandidates.json", mergedFileDict, indent=4)

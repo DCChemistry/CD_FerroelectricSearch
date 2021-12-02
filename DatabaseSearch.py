@@ -2,8 +2,7 @@ from pymatgen.ext.matproj import MPRester
 from pymatgen.core.periodic_table import Element
 import numpy as np
 import matplotlib.pyplot as plt
-from json_tricks import dumps, loads #the json module doesn't support non-standard types (such as the output from MAPI),
-                                     #but json_tricks does
+from Util import SaveDictAsJSON, ReadJSONFile
 from ChargeDisproportation import * #this imports all functions, variables and classes within the
 #ChargeDisproportionation.py file
 import os
@@ -33,15 +32,6 @@ def NonRadElements():
     return nonRadElements, radElementSymbols
 
 
-def SaveDictAsJSON(fileName, dictionary, indent=None):
-    with open(fileName, "w") as f:
-        f.write(dumps(dictionary, indent=indent)) #don't need to read this since it's just a 'checkpoint'
-
-def ReadJSONFile(fileName):
-    with open(fileName, "r") as f:
-        return loads(f.read()) #loads() returns the string from f.read() as dict
-
-
 def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=256):
 
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
@@ -67,10 +57,10 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=256):
                                                                         #data less often - latency - sending info back and forth takes
                                                                         # time)
 
-        SaveDictAsJSON(f"{searchFileName}.json", results)
+        SaveDictAsJSON(searchFileName, results)
 
     else:
-        results = ReadJSONFile(f"{searchFileName}.json") #[:1000] #just want to run program with the first 1000 results - remove slice later
+        results = ReadJSONFile(searchFileName) #[:1000] #just want to run program with the first 1000 results - remove slice later
     
     t1 = time.time()
     CheckForCD(results, searchFileName, noOfTasks) #this is a little scuffed, but it works. it used to be resultsCD = ...
