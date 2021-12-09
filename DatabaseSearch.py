@@ -32,7 +32,7 @@ def NonRadElements():
     return nonRadElements, radElementSymbols
 
 
-def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=256):
+def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
 
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
         
@@ -51,7 +51,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=256):
             # and $gt is simply 'greater than' - ferroelectrics are insulators, and DFT underestimates band gaps greatly,
             # so if the band gap is > 0, that means the band gap is sizeable (likely insulator). NEW, RUN THIS SOON
 
-            properties = ["material_id", "pretty_formula", "spacegroup.symbol", "spacegroup.crystal_system", "e_above_hull"]
+            properties = ['material_id', 'pretty_formula', 'spacegroup.number', 'band_gap','nsites', "e_above_hull", "nelements"]
             results = mpr.query(criteria, properties, chunk_size=10000) #it's ok to change chunk_size since I'm asking for small things -
                                                                         #it speeds things up tremendously (asking for larger amounts of
                                                                         #data less often - latency - sending info back and forth takes
@@ -60,43 +60,20 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=256):
         SaveDictAsJSON(searchFileName, results)
 
     else:
-        results = ReadJSONFile(searchFileName) #[:1000] #just want to run program with the first 1000 results - remove slice later
+        results = ReadJSONFile(searchFileName)
     
     t1 = time.time()
-    CheckForCD(results, searchFileName, noOfTasks) #this is a little scuffed, but it works. it used to be resultsCD = ...
+    CheckForCD(results, searchFileName, noOfTasks)
     t2 = time.time()
     print(f"Task took {t2-t1:.2f} s")
 
 
-def HistogramMaker(CDResults):
-    """Takes CheckForCD results in JSON format (dict), and returns histograms for each property that was requested in the original
-    MAPI query."""
-    
-    properties = list(CDResults[list(CDResults)[0]].keys())
-    #^ ok, so, there are a few things going on here that will likely make no sense in future, but I'll try to explain them now while
-    # it's fresh:
-    # 1) list(CDResults) returns a list of the keys of CDResults (I guess like using .keys(), but apparently you don't need
-    # that part).
-    # 2) I want to just look at the first element inside the CDResults dict, so I use list(CDResults)[0], which gives me the first
-    # key (material id string).
-    # 3) Now, then the key I got can be used to get the associated value (dictionary of the properties I ordered in the MAPI query),
-    # using CDResults[list(CDResults)[0]].
-    # 4) I then want the keys of the dictionary with all the properties inside ('property tags') and turn them into a list, from
-    # which I can use to create individual histograms for each of the ordered properties; the resultant line of code is what is
-    # above: list(CDResults[list(CDResults)[0]].keys())
 
-    #ok, gotta do some more stuff here - for loop using the properties list to create histograms. Can probably make a separate
-    # program to use the currently existing CD results file.
 
 def main():
     nonRadElements, radElements = NonRadElements()
-    DatabaseSearch("NonRadSearch", nonRadElements, radElements, noOfTasks=1024)
-    #popularElements = ["Mn", "V", "Fe", "Ni", "Co", "Cu", "Bi", "Ti", "Eu", "Sm", "Yb"]
-    #DatabaseSearch("popularCOElemSearch", popularElements, radElements)
-    #transitionMetals = list(np.arange(21, 30+1))+list(np.arange(39, 48+1))+list(np.arange(72, 80+1))+list(np.arange(104, 112+1))
-    #fBlock = list(np.arange(57, 71+1))+list(np.arange(89, 103+1))
-    #semiMetals = 
-    #DatabaseSearch("FullSearch", , radElements)
+    DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
+
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     import cProfile

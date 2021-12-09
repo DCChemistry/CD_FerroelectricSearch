@@ -3,9 +3,9 @@ from pymatgen.core.composition import Composition
 import numpy as np #added just in case - may add numpy objects later
 import re
 import concurrent.futures
-import multiprocessing
 import math
 from Util import SaveDictAsJSON, ReadJSONFile
+import matplotlib.pyplot as plt
 
 
 def OxidationStateCalc(formula):
@@ -44,9 +44,9 @@ class CheckForCD:
 
     def __init__(self, results, fileName, noOfTasks):
         self.fileName = fileName
-        processor_count = multiprocessing.cpu_count()
         self.noOfTasks = noOfTasks
         self.MultiThreadedCheckForCD(results)
+        self.CDResultsPlotter() #after results are obtained, frequency and e_above_hull plots should be made
 
     def FileMerger(self):
         """Merges the task files together into one, and deletes the task files."""
@@ -55,12 +55,12 @@ class CheckForCD:
             taskResults = ReadJSONFile(f"{self.fileName}_task_{i}")
             mergedFileDict.update(dict(taskResults))
 
-        SaveDictAsJSON(f"{self.fileName}CDCandidates.json", mergedFileDict, indent=4)
+        SaveDictAsJSON(f"{self.fileName}CDCandidates", mergedFileDict, indent=4)
         for i in range(self.noOfTasks):
             os.remove(f"{self.fileName}_task_{i}.json")
 
     def CheckForCDTaskMaster(self, results, taskNo):
-        SaveDictAsJSON(f"{self.fileName}_task_{taskNo}.json", self.CheckForCD(results))
+        SaveDictAsJSON(f"{self.fileName}_task_{taskNo}", self.CheckForCD(results))
         print(f"Task {taskNo}/{self.noOfTasks} complete!")
 
     def CheckForCD(self, results):
@@ -73,9 +73,11 @@ class CheckForCD:
                 COmaterial, CDelement = SiteCentredCO(formula)
                 siteCOmaterials[material["material_id"]] = {
                         "pretty_formula": COmaterial,
-                        "spacegroup.symbol": material["spacegroup.symbol"],
-                        "spacegroup.crystal_system": material["spacegroup.crystal_system"],
+                        "spacegroup.number": material["spacegroup.number"],
+                        "band_gap": material["band_gap"],
+                        "nsites": material["nsites"],
                         "e_above_hull": material["e_above_hull"],
+                        "nelements": material["nelements"],
                         "CDelement": CDelement
                 }
 
@@ -110,3 +112,74 @@ class CheckForCD:
                 executor.submit(self.CheckForCDTaskMaster, tasks[i], i)
                 #^ calls the CheckForCD function with each task created above from the executor thread that the process pool is on.
         self.FileMerger() #merges the task files into a new, single file, and deletes the task files.
+
+
+    def CDResultsPlotter(self): #formerly HistogramMaker()
+        """Takes CheckForCD results in JSON format (dict), and returns histograms for each property that was requested in the original
+        MAPI query."""
+
+        CDResults = ReadJSONFile(f"{self.fileName}CDCandidates")
+        folderName = "CDResults_plots"
+        if(not os.path.exists(folderName)):
+            os.mkdir(folderName)
+        #fig.suptitle("Important properties", fontsize=18) #currently this overlaps with the top subplot title
+        elements = [r["CDelement"] for r in CDResults.values()] #getting a list of the values for a certain property, e.g. space group, crystal system, etc.
+        counter = {} #saves the type of item, e.g. space group symbols as keys and their respective values are the frequency at which
+                        #they appeared in the items list
+        noOfItems = len(elements)
+        for i, element in enumerate(elements):
+            print(f"{i+1}/{noOfItems}")
+            if(element in counter): #if item is already in the counter dictionary
+                counter[element] += 1 #then increase the count by 1 for that item
+            else: #if item (key) isn't already 
+                counter[element] = 1
+        counter = {k: v for k, v in sorted(counter.items(), key=lambda item: item[1], reverse=True)} #reverse=True inverts the sorted order.
+        # ^ https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
+        
+        #Charge disproportionation element frequency plot
+        plt.figure(figsize=(12, 5))
+        plt.bar(range(len(counter)), counter.values(), align="center")
+        plt.xticks(range(len(counter)))
+        plt.title("CDelement Frequency")
+        plt.ylabel("No. of materials")
+        plt.xlabel("Charge disproportionation elements")
+
+        plt.xticks(range(len(counter)), [key[0:5] for key in list(counter.keys())])
+        plt.tight_layout()
+        plt.savefig(f"{folderName}/{self.fileName}Freq.png", dpi=300, bbox_inches="tight")
+
+        #Energy above hull plot
+        blankLists = []
+        for i in range(len(elements)):
+            blankLists.append([])
+
+        eAboveHullForCDElem = dict(zip(counter.keys(), blankLists))
+        # ^ for each element (using counter.keys() because I want to use the same element order), there is initially a blank list attached as a value.
+        # I will be appending e_above_hull values to these lists, then using np.mean to get average e_above_hull values.
+        # By checking the CDElement parameter for each result, can append to the relevant list. This needs to be done here instead of above with counter, 
+        # since I want to have the same order of elements as the sorted counter dictionary.#
+        nullCases= {} #contains entries that have an e_above_hull = null
+        for id in CDResults: #iterating over a dict gives its keys, so the keys in this case are the material IDs
+            CDElem = CDResults[id]["CDelement"] #gets me the correct key for eAboveHullForCDElem
+            eAboveHull = CDResults[id]["e_above_hull"] #gives me the e_above_hull I want to append to the respective list
+            if(eAboveHull==None):
+                print(f"{id} has e_above_hull=null")
+                nullCases.update({id: CDResults[id]})
+                # ^ for some reason, some entries have 'null' as their e_above_hull value, despite the web site entries having values
+            else:
+                eAboveHullForCDElem[CDElem].append(eAboveHull) #appending the e_above_hull to the appropriate list
+        if(len(nullCases.keys()) > 0): #it isn't always the case that there are null values for e_above_hull in a search
+            SaveDictAsJSON(f"Energy_above_hull_is_null_{self.fileName}", nullCases, indent=4)
+        
+        eAboveHullForCDElem = {k:np.mean(v) for (k,v) in eAboveHullForCDElem.items()}
+
+        plt.figure(figsize=(12, 5))
+        plt.bar(range(len(eAboveHullForCDElem)), eAboveHullForCDElem.values(), align="center")
+        plt.xticks(range(len(counter)))
+        plt.title("Energy Above Convex Hull Per CD Element")
+        plt.ylabel("Energy above hull / eV")
+        plt.xlabel("Charge dissproportionation elements")
+        
+        plt.xticks(range(len(counter)), [key[0:5] for key in list(counter.keys())])
+        plt.tight_layout()
+        plt.savefig(f"{folderName}/{self.fileName}Hull.png", dpi=300, bbox_inches="tight")
