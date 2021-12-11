@@ -6,6 +6,7 @@ import concurrent.futures
 import math
 from Util import SaveDictAsJSON, ReadJSONFile
 import matplotlib.pyplot as plt
+import glob #for unix style searching
 
 
 def OxidationStateCalc(formula):
@@ -92,13 +93,37 @@ class CheckForCD:
 
         return siteCOmaterials 
 
+    def ResumeFrom(self):
+
+        generalTaskFileName = f"{self.fileName}_task_*" #general form of task file names
+        tasks = glob.glob(generalTaskFileName)
+        if(len(tasks) != 0): #if task files for this run exist, do the following
+            taskIndices = []
+            for i in range(len(tasks)):
+                noRegex = re.compile('[0-9]+')
+                # ^ should get the first instance of a 'number section'
+                taskNoPart = tasks[i].replace(self.fileName, "") #each task is a task file name, and thus follows the expected general format
+                # ^ remove self.fileName from the general task file name, leaving _task_x.json, where x is the task index
+                taskIndex = int(re.findall(noRegex, taskNoPart)[0]) #gotta add in [0] to get a good result from regex
+                # ^ applying the number regex to taskNoPart, and converting the resultant string into an int
+                taskIndices.append(taskIndex)
+            assignedTaskIndices = list(np.arange(self.noOfTasks))
+            remainingTaskIndices = list(set(assignedTaskIndices)-set(taskIndices))
+            # ^ sets allow this comparison to take place using the minus operator to get the remaining indices
+            return remainingTaskIndices
 
     def MultiThreadedCheckForCD(self, results):
         
-
+        remainingTaskIndices = self.ResumeFrom()
+        if(remainingTaskIndices == None): #if task files for this run don't exist
+            indices = range(self.noOfTasks)
+            print("Initiating fresh run. No task files for the given file name found.")
+        else: #task files already exist
+            indices = remainingTaskIndices
+            print("Task files found. Continuing from where we left off.")
+            print(f"Number of remaining tasks: {len(indices)}")
 
         materialsPerTask = math.floor(len(results)/self.noOfTasks)
-
         tasks = []
         for i in range(self.noOfTasks):
 
@@ -108,7 +133,7 @@ class CheckForCD:
 
         with concurrent.futures.ProcessPoolExecutor() as executor:
 
-            for i in range(self.noOfTasks): #and thus, the length of futures = noOfTasks
+            for i in indices: #indices will differ depending on whether task files already exist (see start of func def)
                 executor.submit(self.CheckForCDTaskMaster, tasks[i], i)
                 #^ calls the CheckForCD function with each task created above from the executor thread that the process pool is on.
         self.FileMerger() #merges the task files into a new, single file, and deletes the task files.

@@ -46,7 +46,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
         results = None #done so that results exists outside the scope of the with block
         with MPRester(APIkey) as mpr:
  
-            criteria = {"elements": {"$in": elementList, "$nin": excludeList}, "band_gap": {"$gt": 0.0}}
+            criteria = {"elements": {"$in": elementList, "$nin": excludeList}, "band_gap": {"$eq": 0.0}}
             # ^ want to find materials that contain any of the listed elements, hence $in, $nin excludes elements in given list,
             # and $gt is simply 'greater than' - ferroelectrics are insulators, and DFT underestimates band gaps greatly,
             # so if the band gap is > 0, that means the band gap is sizeable (likely insulator). NEW, RUN THIS SOON
@@ -72,8 +72,8 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
 
 def main():
     nonRadElements, radElements = NonRadElements()
-    DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
-
+    #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
+    DatabaseSearch("NonRadSearch2_band_gap0", nonRadElements, radElements)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     import cProfile
