@@ -2,3 +2,4 @@ APIkey.txt
 *.json
 __pycache__
 CDResults_plots
+Old_Results

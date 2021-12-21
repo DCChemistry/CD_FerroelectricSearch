@@ -7,6 +7,7 @@ from ChargeDisproportation import * #this imports all functions, variables and c
 #ChargeDisproportionation.py file
 import os
 import time
+from Analysis import*
     
 
 
@@ -64,6 +65,8 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
     
     t1 = time.time()
     CheckForCD(results, searchFileName, noOfTasks)
+    #MultiProcessing(searchFileName, "NP", Analysis.NonPolar)
+    Analysis(searchFileName)
     t2 = time.time()
     print(f"Task took {t2-t1:.2f} s")
 
@@ -73,7 +76,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
 def main():
     nonRadElements, radElements = NonRadElements()
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
-    DatabaseSearch("NonRadSearch2_band_gap0", nonRadElements, radElements)
+    DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     import cProfile

@@ -46,8 +46,12 @@ class CheckForCD:
     def __init__(self, results, fileName, noOfTasks):
         self.fileName = fileName
         self.noOfTasks = noOfTasks
-        self.MultiThreadedCheckForCD(results)
-        self.CDResultsPlotter() #after results are obtained, frequency and e_above_hull plots should be made
+        if(not os.path.isfile(f"{self.fileName}CDCandidates.json")):
+            print("Starting CD analysis.")
+            self.MultiThreadedCheckForCD(results)
+            self.CDResultsPlotter() #after results are obtained, frequency and e_above_hull plots should be made
+        else:
+            print(f"CD analysis has already been done for search {self.fileName}")
 
     def FileMerger(self):
         """Merges the task files together into one, and deletes the task files."""
