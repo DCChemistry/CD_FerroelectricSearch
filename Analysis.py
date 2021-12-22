@@ -1,20 +1,37 @@
 import matplotlib.pyplot as plt
 from Util import *
-
-
+from pymatgen.core.composition import Composition
 #Smidt imports
 from pymatgen.symmetry.groups import SYMM_DATA, sg_symbol_from_int_number
 
 import numpy as np #added just in case - may add numpy objects later
 import matplotlib.pyplot as plt
+import os
 
 class Analysis:
 
     def __init__(self, searchFileName):
+        self.searchFileName = searchFileName
         #from CD results to NP results
-        cdResults = ReadJSONFile(f"{searchFileName}CDCandidates")
-        npResults = Analysis.NonPolar(cdResults)
-        SaveDictAsJSON(searchFileName+"NP", npResults)
+        self.ReadAnalyseWrite("NonPolar", "CDCandidates", "NP")
+
+        #from NP results to one primitive cell results
+        self.ReadAnalyseWrite("OnePrimCell", "NP", "onePC")
+
+
+    def ReadAnalyseWrite(self, AnalysisType, prevAnalysisTag, newAnalysisTag):
+        """AnalysisType is the name of the method used to analyse the data, e.g. NonPolar.
+           prevAnalysisTag is the text appeneded to the end of the analysis file you want to load.
+           newAnalysisTag that will be appended to the end of the analysis file you want to create."""
+        
+        if(not os.path.isfile(f"{self.searchFileName}{newAnalysisTag}.json")):
+            print(f"Starting {newAnalysisTag} analysis.")
+            results = ReadJSONFile(f"{self.searchFileName}{prevAnalysisTag}")
+            analysisResults = eval(f"Analysis.{AnalysisType}(results)")
+            SaveDictAsJSON(f"{self.searchFileName}{newAnalysisTag}", analysisResults)
+        else:
+            print(f"{newAnalysisTag} analysis has already been done for search {self.searchFileName}.")
+
 
     @staticmethod
     def NonPolar(results): #add in stuff to check if NP file already exists
@@ -60,10 +77,25 @@ class Analysis:
             if(results[material]["spacegroup.number"] not in polar_spacegroups):
                 nonPolarResults[material] = results[material]
         
-        print("NP analysis complete.")
+        print(f"NP analysis complete. {len(nonPolarResults.keys())} materials found.")
         return nonPolarResults #consider incorporating file reading and writing directly into this function, rather than doing it at initialisation
     
 
     @staticmethod
-    def OneToOnePrimToUnitCell():
-        pass
+    def OnePrimCell(results):
+        print("Starting primitive cell analysis.")
+        primCellResults = {}
+        for material in results:
+            comp = Composition(results[material]["pretty_formula"])
+            reducedFormulaAtomNo = comp.num_atoms
+            noOfAtomsInStruct = int(results[material]["nsites"])
+            noOfPrimCells = noOfAtomsInStruct/reducedFormulaAtomNo
+            if(noOfPrimCells == 1):
+                primCellResults[material] = results[material]
+            elif(noOfAtomsInStruct%reducedFormulaAtomNo!=0):
+                #^ Identifies materials that have a fractional no. of primitive cell in the calculated cell.
+                # There are very few of these, and the ones found in my run were H2 and N2 only. All other materials have an int no. of prim. cells.
+                print(f"Fractional no. of primitive cells found for material: {results[material]['pretty_formula']}.\nPrim. cell ratio = {noOfPrimCells}\n")
+        
+        print(f"Primitive cell analysis complete. {len(primCellResults.keys())} materials found.")
+        return primCellResults

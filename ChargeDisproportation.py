@@ -205,8 +205,8 @@ class CheckForCD:
         plt.figure(figsize=(12, 5))
         plt.bar(range(len(eAboveHullForCDElem)), eAboveHullForCDElem.values(), align="center")
         plt.xticks(range(len(counter)))
-        plt.title("Energy Above Convex Hull Per CD Element")
-        plt.ylabel("Energy above hull / eV")
+        plt.title("Average Energy Above Convex Hull Per CD Element")
+        plt.ylabel("Average Energy above hull / eV")
         plt.xlabel("Charge dissproportionation elements")
         
         plt.xticks(range(len(counter)), [key[0:5] for key in list(counter.keys())])

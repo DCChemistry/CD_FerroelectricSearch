@@ -79,6 +79,6 @@ def main():
     DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
-    import cProfile
-    cProfile.run("main()")
-    #main()
+    #import cProfile
+    #cProfile.run("main()") #does the same thing as a profiler - helpful for CheckForCD which takes a long time to run
+    main()
