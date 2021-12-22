@@ -7,6 +7,7 @@ from pymatgen.symmetry.groups import SYMM_DATA, sg_symbol_from_int_number
 import numpy as np #added just in case - may add numpy objects later
 import matplotlib.pyplot as plt
 import os
+import re
 
 class Analysis:
 
@@ -17,6 +18,15 @@ class Analysis:
 
         #from NP results to one primitive cell results
         self.ReadAnalyseWrite("OnePrimCell", "NP", "onePC")
+
+        #from onePC results to binary and ternary compounds
+        self.ReadAnalyseWrite("BinAndTern", "onePC", "BAndT")
+
+        #from binAndTern results to lt16sites
+        self.ReadAnalyseWrite("LTorEQ16Sites", "BAndT", "lt16sites")
+
+        #from lt16sites results to no toxic elements results
+        self.ReadAnalyseWrite("NoToxicElements", "lt16sites", "noTox")
 
 
     def ReadAnalyseWrite(self, AnalysisType, prevAnalysisTag, newAnalysisTag):
@@ -88,7 +98,7 @@ class Analysis:
         for material in results:
             comp = Composition(results[material]["pretty_formula"])
             reducedFormulaAtomNo = comp.num_atoms
-            noOfAtomsInStruct = int(results[material]["nsites"])
+            noOfAtomsInStruct = results[material]["nsites"]
             noOfPrimCells = noOfAtomsInStruct/reducedFormulaAtomNo
             if(noOfPrimCells == 1):
                 primCellResults[material] = results[material]
@@ -99,3 +109,55 @@ class Analysis:
         
         print(f"Primitive cell analysis complete. {len(primCellResults.keys())} materials found.")
         return primCellResults
+    
+    @staticmethod
+    def BinAndTern(results):
+        print("Starting binary and ternary compound filtering.")
+        binAndTernResults = {}
+        for material in results:
+            noOfElements = results[material]["nelements"]
+            if(noOfElements in [2,3]): #this may look scuffed, but it works
+                binAndTernResults[material] = results[material]
+        
+        print(f"Binary and ternary compounds found. {len(binAndTernResults.keys())} materials identified.")
+        return binAndTernResults
+
+    @staticmethod
+    def LTorEQ16Sites(results):
+        print("Starting less than or equal to 16 sites (atoms in the cell) filtering.")
+        ltOrEq16Results = {}
+        for material in results:
+            noOfSites = results[material]["nsites"]
+            if(noOfSites <= 16):
+                ltOrEq16Results[material] = results[material]
+        
+        print(f"Site filtering (<= 16) filtering complete. {len(ltOrEq16Results.keys())} materials found.")
+        return ltOrEq16Results
+
+    @staticmethod
+    def DisplayElements(formula):
+        """Returns a list of elements present from a given formula."""
+        comp = Composition(formula)
+        elementsFromFormulaWithNo = comp.formula
+        alphabetRegex = re.compile('[a-zA-Z]+') #need this for removing numbers from string
+        elementsFromFormula = alphabetRegex.findall(elementsFromFormulaWithNo) #returns list of elements present
+        return elementsFromFormula
+
+    @staticmethod #FUNCTION BELOW IS BROKEN - THE "IF ANY" PART DOESN'T WORK - IT CURRENTLY ONLY SAVES MATERIALS WITH PB
+    def NoToxicElements(results): #removing Cd and Pb - they're toxic, might as well.
+        toxicElements = ["Pb", "Cd"]
+        print(f"Starting removal of compounds that contain: {toxicElements}.")
+        noToxicElemResults = {}
+        for material in results:
+            formula = results[material]["pretty_formula"]
+            listOfElemPresent = Analysis.DisplayElements(formula)
+            if not any(toxicElem in listOfElemPresent for toxicElem in toxicElements):
+                #^ this just works - if I had to explain it, if there is no overlap between the two lists, continue, otherwise do nothing
+                # ^ using this solution https://stackoverflow.com/questions/62115746/can-i-check-if-a-list-contains-any-item-from-another-list
+                noToxicElemResults[material] = results[material]
+
+        print(f"Toxic elements {toxicElements} removed. {len(noToxicElemResults.keys())} materials remain.")
+        return noToxicElemResults
+                
+        
+
