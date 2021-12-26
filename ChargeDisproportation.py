@@ -46,7 +46,7 @@ class CheckForCD:
     def __init__(self, results, fileName, noOfTasks):
         self.fileName = fileName
         self.noOfTasks = noOfTasks
-        if(not os.path.isfile(f"{self.fileName}CDCandidates.json")):
+        if(not os.path.isfile(f"{self.fileName}CD_0.json")):
             print("Starting CD analysis.")
             self.MultiThreadedCheckForCD(results)
             self.CDResultsPlotter() #after results are obtained, frequency and e_above_hull plots should be made
@@ -60,7 +60,7 @@ class CheckForCD:
             taskResults = ReadJSONFile(f"{self.fileName}_task_{i}")
             mergedFileDict.update(dict(taskResults))
 
-        SaveDictAsJSON(f"{self.fileName}CDCandidates", mergedFileDict, indent=4)
+        SaveDictAsJSON(f"{self.fileName}CD_0", mergedFileDict, indent=4)
         for i in range(self.noOfTasks):
             os.remove(f"{self.fileName}_task_{i}.json")
 
@@ -147,7 +147,7 @@ class CheckForCD:
         """Takes CheckForCD results in JSON format (dict), and returns histograms for each property that was requested in the original
         MAPI query."""
 
-        CDResults = ReadJSONFile(f"{self.fileName}CDCandidates")
+        CDResults = ReadJSONFile(f"{self.fileName}CD_0")
         folderName = "CDResults_plots"
         if(not os.path.exists(folderName)):
             os.mkdir(folderName)

@@ -34,9 +34,10 @@ def NonRadElements():
 
 
 def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
-
+    print("Hello, and welcome to your database search!")
+    
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
-        
+        print(f"{searchFileName}.json not found. Creating file and querying the Materials Project Database.")
 
 
 
@@ -61,8 +62,9 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
         SaveDictAsJSON(searchFileName, results)
 
     else:
+        print(f"File {searchFileName}.json found. Loading file.")
         results = ReadJSONFile(searchFileName)
-    
+
     t1 = time.time()
     CheckForCD(results, searchFileName, noOfTasks)
     #MultiProcessing(searchFileName, "NP", Analysis.NonPolar)

@@ -13,32 +13,38 @@ class Analysis:
 
     def __init__(self, searchFileName):
         self.searchFileName = searchFileName
-        #from CD results to NP results
-        self.ReadAnalyseWrite("NonPolar", "CDCandidates", "NP")
 
-        #from NP results to one primitive cell results
-        self.ReadAnalyseWrite("OnePrimCell", "NP", "onePC")
+        #keys are the 'codes' appended to a certain file
+        filters = {
+                    "NP": Analysis.NonPolar,
+                    "onePC": Analysis.OnePrimCell,
+                    "BAndT": Analysis.BinAndTern,
+                    "lt16sites": Analysis.LTorEQ16Sites,
+                    "noTox": Analysis.NoToxicElements
+        }
 
-        #from onePC results to binary and ternary compounds
-        self.ReadAnalyseWrite("BinAndTern", "onePC", "BAndT")
+        #order of the keys from 'filters' dictionary
+        orderOfFilters = ["NP", "noTox", "BAndT", "onePC", "lt16sites"] #maybe make this an input for initialisation? Then make it a DatabaseSearch
+                                                                         #variable, so that everything is controlled from there.
 
-        #from binAndTern results to lt16sites
-        self.ReadAnalyseWrite("LTorEQ16Sites", "BAndT", "lt16sites")
+        for counter, filter in enumerate(orderOfFilters):
+            if(counter==0):
+                self.ReadAnalyseWrite(filters[filter], "CD", filter, counter)
+            else:
+                self.ReadAnalyseWrite(filters[filter], orderOfFilters[counter-1], filter, counter)
 
-        #from lt16sites results to no toxic elements results
-        self.ReadAnalyseWrite("NoToxicElements", "lt16sites", "noTox")
 
-
-    def ReadAnalyseWrite(self, AnalysisType, prevAnalysisTag, newAnalysisTag):
+    def ReadAnalyseWrite(self, analysisType, prevAnalysisTag, newAnalysisTag, numberInQueue): #numberInQueue is to show the order each filter was applied in
         """AnalysisType is the name of the method used to analyse the data, e.g. NonPolar.
            prevAnalysisTag is the text appeneded to the end of the analysis file you want to load.
            newAnalysisTag that will be appended to the end of the analysis file you want to create."""
         
         if(not os.path.isfile(f"{self.searchFileName}{newAnalysisTag}.json")):
-            print(f"Starting {newAnalysisTag} analysis.")
-            results = ReadJSONFile(f"{self.searchFileName}{prevAnalysisTag}")
-            analysisResults = eval(f"Analysis.{AnalysisType}(results)")
-            SaveDictAsJSON(f"{self.searchFileName}{newAnalysisTag}", analysisResults)
+            print(f"\nStarting {newAnalysisTag} analysis:")
+            results = ReadJSONFile(f"{self.searchFileName}{prevAnalysisTag}_{numberInQueue}") #the results variable is in the eval statement below, don't worry
+            analysisResults = analysisType(results)
+            SaveDictAsJSON(f"{self.searchFileName}{newAnalysisTag}_{numberInQueue+1}", analysisResults)
+            # ^ numberInQueue+1 starts from 1, hence numberInQueue without the +1 is the previous numberInQueue
         else:
             print(f"{newAnalysisTag} analysis has already been done for search {self.searchFileName}.")
 
@@ -143,9 +149,9 @@ class Analysis:
         elementsFromFormula = alphabetRegex.findall(elementsFromFormulaWithNo) #returns list of elements present
         return elementsFromFormula
 
-    @staticmethod #FUNCTION BELOW IS BROKEN - THE "IF ANY" PART DOESN'T WORK - IT CURRENTLY ONLY SAVES MATERIALS WITH PB
+    @staticmethod
     def NoToxicElements(results): #removing Cd and Pb - they're toxic, might as well.
-        toxicElements = ["Pb", "Cd"]
+        toxicElements = ["Pb", "Cd", "As"]
         print(f"Starting removal of compounds that contain: {toxicElements}.")
         noToxicElemResults = {}
         for material in results:
