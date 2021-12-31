@@ -17,14 +17,14 @@ class Analysis:
         #keys are the 'codes' appended to a certain file
         filters = {
                     "NP": Analysis.NonPolar,
-                    "onePC": Analysis.OnePrimCell,
+                    "oneCDSite": Analysis.OneCDSite,
                     "BAndT": Analysis.BinAndTern,
                     "lt16sites": Analysis.LTorEQ16Sites,
                     "noTox": Analysis.NoToxicElements
         }
 
         #order of the keys from 'filters' dictionary
-        orderOfFilters = ["NP", "noTox", "BAndT", "onePC", "lt16sites"] #maybe make this an input for initialisation? Then make it a DatabaseSearch
+        orderOfFilters = ["NP", "oneCDSite"] #maybe make this an input for initialisation? Then make it a DatabaseSearch
                                                                          #variable, so that everything is controlled from there.
 
         for counter, filter in enumerate(orderOfFilters):
@@ -39,7 +39,7 @@ class Analysis:
            prevAnalysisTag is the text appeneded to the end of the analysis file you want to load.
            newAnalysisTag that will be appended to the end of the analysis file you want to create."""
         
-        if(not os.path.isfile(f"{self.searchFileName}{newAnalysisTag}.json")):
+        if(not os.path.isfile(f"{self.searchFileName}{newAnalysisTag}_{numberInQueue+1}.json")):
             print(f"\nStarting {newAnalysisTag} analysis:")
             results = ReadJSONFile(f"{self.searchFileName}{prevAnalysisTag}_{numberInQueue}") #the results variable is in the eval statement below, don't worry
             analysisResults = analysisType(results)
@@ -96,17 +96,40 @@ class Analysis:
         print(f"NP analysis complete. {len(nonPolarResults.keys())} materials found.")
         return nonPolarResults #consider incorporating file reading and writing directly into this function, rather than doing it at initialisation
     
+    @staticmethod
+    def DisplayElemAndNo(formula):
+        """Takes a formula, and returns a dictionary of the elements present as keys, with respective values being the no. of atoms of that element."""
+        comp = Composition(formula)
+        elementsFromFormulaWithNo = comp.formula
+
+        #elements in material
+        alphabetRegex = re.compile('[a-zA-Z]+') #need this for removing numbers from string
+        elementsFromFormula = alphabetRegex.findall(elementsFromFormulaWithNo) #returns list of elements present
+
+        #number of each element in material
+        numberRegex = re.compile('[0-9]+')
+        noOfElemFromFormula = numberRegex.findall(elementsFromFormulaWithNo)
+        noOfElemFromFormula = [int(num) for num in noOfElemFromFormula] #entries are strings otherwise - typecasting to int necessary.
+
+        materialElemAndNo = dict(zip(elementsFromFormula, noOfElemFromFormula))
+
+        return materialElemAndNo
 
     @staticmethod
-    def OnePrimCell(results):
-        print("Starting primitive cell analysis.")
+    def OneCDSite(results):
+        print("Starting one CD site filter.")
         primCellResults = {}
         for material in results:
-            comp = Composition(results[material]["pretty_formula"])
+            formula = results[material]["pretty_formula"]
+            comp = Composition(formula)
             reducedFormulaAtomNo = comp.num_atoms
             noOfAtomsInStruct = results[material]["nsites"]
             noOfPrimCells = noOfAtomsInStruct/reducedFormulaAtomNo
-            if(noOfPrimCells == 1):
+            CDelement = results[material]["CDelement"]
+            materialElemAndNo = Analysis.DisplayElemAndNo(formula)
+            noOfCDSites = materialElemAndNo[CDelement]
+            print(noOfCDSites)
+            if(noOfPrimCells == 1 and noOfCDSites == 1):
                 primCellResults[material] = results[material]
             elif(noOfAtomsInStruct%reducedFormulaAtomNo!=0):
                 #^ Identifies materials that have a fractional no. of primitive cell in the calculated cell.
