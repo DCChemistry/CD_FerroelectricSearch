@@ -1,28 +1,20 @@
-import os
-from pymatgen.core.composition import Composition
-import numpy as np #added just in case - may add numpy objects later
-import re
-import concurrent.futures
-import math
-from Util import SaveDictAsJSON, ReadJSONFile
+from pymatgen.ext.matproj import MPRester
+from pymatgen.core.periodic_table import Element
+import numpy as np
 import matplotlib.pyplot as plt
-import glob #for unix style searching
+from Util import *
+from ChargeDisproportation import * #this imports all functions, variables and classes within the
+#ChargeDisproportionation.py file
+import os
+import time
+from Analysis import*
 
+from datetime import datetime #NEW MODULE FOR CHECK FOR CD - TASKS WILL NOW PRINT TIME COMPLETED
 
-def OxidationStateCalc(formula):
-    """Returns a pymatgen list-like object of elements with their respective oxidation states (OS) from a given chemical
-    formula."""
-    chemical = Composition(formula) #converting formula to pymatgen Composition object
-    oxStates = list(chemical.add_charges_from_oxi_state_guesses())
-    oxStates = [str(element) for element in oxStates]
-    return oxStates #returns the number of elements, each with a charge assigned
-                                                         #(multiple instances of an element with different charges will be
-                                                         #shown if the OS isn't 'normal' - this is the basis of this program)
-
-def SiteCentredCO(material):
+def DoubleUpSiteCentredCO(material):
     """Returns a material that is likely to undergo charge disproportionation (CD) (as well as the element that is likely
     to be undergoing CD) from a given formula."""
-    oxStates = OxidationStateCalc(material)
+    oxStates = OxidationStateCalc(f"({material})2")
 
     alphabetRegex = re.compile('[a-zA-Z]+') #need this for removing numbers from oxidation states (see below)
     #- a-zA-Z gets all letters (upper and lowercase), and the subsequent '+' reads those letters as a group (otherwise
@@ -37,11 +29,10 @@ def SiteCentredCO(material):
     for element in elements:
         instances = oxStates.count(element) #originally, this was "elements.count(element)", which was using the non-duplicate
                                             #list. Hence why the try below always failed, since no CO materials could ever be
-                                            #found
         if(instances>1):
-            return material, element
+            return material, element                                 
 
-class CheckForCD:
+class DoubleUpCheckForCD: #need to copy this in here to be able to double up formula units
 
     def __init__(self, results, fileName, noOfTasks):
         self.fileName = fileName
@@ -66,7 +57,11 @@ class CheckForCD:
 
     def CheckForCDTaskMaster(self, results, taskNo):
         SaveDictAsJSON(f"{self.fileName}_task_{taskNo}", self.CheckForCD(results))
-        print(f"Task {taskNo}/{self.noOfTasks} complete!")
+        
+        #NEED TO CHANGE THIS IN CHARGEDISPROPORTIONATION - PRINTING CURRENT TIME
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        print(f"Task {taskNo}/{self.noOfTasks} completed at {current_time}")
 
     def CheckForCD(self, results):
 
@@ -75,7 +70,7 @@ class CheckForCD:
         for material in results:
             try:
                 formula = material["pretty_formula"]
-                COmaterial, CDelement = SiteCentredCO(formula)
+                COmaterial, CDelement = DoubleUpSiteCentredCO(formula)
                 siteCOmaterials[material["material_id"]] = {
                         "pretty_formula": COmaterial,
                         "spacegroup.number": material["spacegroup.number"],
@@ -212,3 +207,54 @@ class CheckForCD:
         plt.xticks(range(len(counter)), [key[0:5] for key in list(counter.keys())])
         plt.tight_layout()
         plt.savefig(f"{folderName}/{self.fileName}Hull.png", dpi=300, bbox_inches="tight")
+
+
+
+fileName = "NonRadSearch2_oneAtom"
+
+if(not os.path.isfile(f"{fileName}.json")):
+    def OneAtom(results):
+        print("Starting to apply 'one atom, one site' material filter.")
+        oneAtomResults = []
+        for material in results:
+            formula = material["pretty_formula"]
+            comp = Composition(formula)
+            reducedFormulaAtomNo = comp.num_atoms
+            noOfAtomsInStruct = material["nsites"]
+            noOfPrimCells = noOfAtomsInStruct/reducedFormulaAtomNo
+            materialElemAndNo = Analysis.DisplayElemAndNo(formula)
+
+            if(noOfPrimCells == 1 and 1 in materialElemAndNo.values() and len(materialElemAndNo.keys()) > 1):
+                # ^ looking for materials where there's only one atom of an element, but don't want pure elements
+                oneAtomResults.append(material)
+
+            elif(noOfAtomsInStruct%reducedFormulaAtomNo!=0):
+                #^ Identifies materials that have a fractional no. of primitive cell in the calculated cell.
+                # There are very few of these, and the ones found in my run were H2 and N2 only. All other materials have an int no. of prim. cells.
+                print(f"Fractional no. of formula units found for material: {material['pretty_formula']}.\nPrim. cell ratio = {noOfPrimCells}\n")
+        
+        print(f"'One atom, one site' filter has been applied. {len(oneAtomResults)} materials found.")
+        return oneAtomResults
+
+    databaseResults = ReadJSONFile("NonRadSearch2")
+    oneAtomResults = OneAtom(databaseResults)
+    SaveDictAsJSON(fileName, oneAtomResults)
+else:
+    print(f"{fileName} exists. Moving on.")
+
+#     oneAtomResults = list(ReadJSONFile(fileName))
+#     print(f"No. of atoms in original file: {len(oneAtomResults)}")
+
+# CDResults = list(ReadJSONFile("NonRadSearch2CD_0"))
+# alreadyConfirmedCD = [value for value in oneAtomResults if value in CDResults]
+# print(f"No. of already confirmed materials: {len(alreadyConfirmedCD)}")
+# oneAtomResultsReduced = [value for value in oneAtomResults if value not in alreadyConfirmedCD]
+# print(f"Items remaining in final file: {len(oneAtomResultsReduced)}")
+# SaveDictAsJSON("NonRadSearch2_oneAtom_cleaned", oneAtomResultsReduced) #there is no overlap between the materials in CD_0 of original subset and this
+
+
+if __name__ == "__main__":
+    oneAtomResults = ReadJSONFile(fileName)
+    DoubleUpCheckForCD(oneAtomResults, fileName, 1024)
+
+

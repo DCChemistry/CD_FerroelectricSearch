@@ -2,7 +2,7 @@ from pymatgen.ext.matproj import MPRester
 from pymatgen.core.periodic_table import Element
 import numpy as np
 import matplotlib.pyplot as plt
-from Util import SaveDictAsJSON, ReadJSONFile
+from Util import *
 from ChargeDisproportation import * #this imports all functions, variables and classes within the
 #ChargeDisproportionation.py file
 import os
@@ -33,7 +33,7 @@ def NonRadElements():
     return nonRadElements, radElementSymbols
 
 
-def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
+def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters, noOfTasks=1024):
     print("Hello, and welcome to your database search!")
     
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
@@ -48,7 +48,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
         results = None #done so that results exists outside the scope of the with block
         with MPRester(APIkey) as mpr:
  
-            criteria = {"elements": {"$in": elementList, "$nin": excludeList}, "band_gap": {"$eq": 0.0}}
+            criteria = {"elements": {"$in": elementList, "$nin": excludeList}}
             # ^ want to find materials that contain any of the listed elements, hence $in, $nin excludes elements in given list,
             # and $gt is simply 'greater than' - ferroelectrics are insulators, and DFT underestimates band gaps greatly,
             # so if the band gap is > 0, that means the band gap is sizeable (likely insulator). NEW, RUN THIS SOON
@@ -68,7 +68,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
     t1 = time.time()
     CheckForCD(results, searchFileName, noOfTasks)
     #MultiProcessing(searchFileName, "NP", Analysis.NonPolar)
-    Analysis(searchFileName)
+    Analysis(searchFileName, orderOfFilters)
     t2 = time.time()
     print(f"Task took {t2-t1:.2f} s")
 
@@ -78,7 +78,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, noOfTasks=1024):
 def main():
     nonRadElements, radElements = NonRadElements()
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
-    DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
+    DatabaseSearch("NonRadSearch2", nonRadElements, radElements, ["NP", "oneCDSite"])
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     #import cProfile

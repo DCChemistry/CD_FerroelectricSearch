@@ -11,7 +11,8 @@ import re
 
 class Analysis:
 
-    def __init__(self, searchFileName):
+    def __init__(self, searchFileName, orderOfFilters): #orderOfFilters will now be in DatabaseSearch
+        #orderOfFilters is the order of the keys from 'filters' dictionary
         self.searchFileName = searchFileName
 
         #keys are the 'codes' appended to a certain file
@@ -22,10 +23,6 @@ class Analysis:
                     "lt16sites": Analysis.LTorEQ16Sites,
                     "noTox": Analysis.NoToxicElements
         }
-
-        #order of the keys from 'filters' dictionary
-        orderOfFilters = ["NP", "oneCDSite"] #maybe make this an input for initialisation? Then make it a DatabaseSearch
-                                                                         #variable, so that everything is controlled from there.
 
         for counter, filter in enumerate(orderOfFilters):
             if(counter==0):
@@ -100,7 +97,7 @@ class Analysis:
     def DisplayElemAndNo(formula):
         """Takes a formula, and returns a dictionary of the elements present as keys, with respective values being the no. of atoms of that element."""
         comp = Composition(formula)
-        elementsFromFormulaWithNo = comp.formula
+        elementsFromFormulaWithNo = comp.formula #breaks formula into a form that is digestible by the program
 
         #elements in material
         alphabetRegex = re.compile('[a-zA-Z]+') #need this for removing numbers from string
