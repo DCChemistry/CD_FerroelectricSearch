@@ -11,9 +11,10 @@ import re
 
 class Analysis:
 
-    def __init__(self, searchFileName, orderOfFilters): #orderOfFilters will now be in DatabaseSearch
+    def __init__(self, searchFileName, orderOfFilters, mutuallyExclusiveElementList=None): #orderOfFilters will now be in DatabaseSearch
         #orderOfFilters is the order of the keys from 'filters' dictionary
         self.searchFileName = searchFileName
+        self.mutuallyExclusiveElementList = mutuallyExclusiveElementList
 
         #keys are the 'codes' appended to a certain file
         filters = {
@@ -30,6 +31,10 @@ class Analysis:
             else:
                 self.ReadAnalyseWrite(filters[filter], orderOfFilters[counter-1], filter, counter)
 
+            if(self.mutuallyExclusiveElementList != None): #only if a list of elements that you want to be mutually exclusive in compounds, apply ME filter
+                self.ReadAnalyseWrite(self.MutuallyExclusiveElements, orderOfFilters[-1], "ME", len(orderOfFilters))
+                #self.ReadAnalyseWrite(self.OnlyChosenCDElements, "ME", "chosenCD", len(orderOfFilters)+1)
+
 
     def ReadAnalyseWrite(self, analysisType, prevAnalysisTag, newAnalysisTag, numberInQueue): #numberInQueue is to show the order each filter was applied in
         """AnalysisType is the name of the method used to analyse the data, e.g. NonPolar.
@@ -38,10 +43,15 @@ class Analysis:
         
         if(not os.path.isfile(f"{self.searchFileName}{newAnalysisTag}_{numberInQueue+1}.json")):
             print(f"\nStarting {newAnalysisTag} analysis:")
-            results = ReadJSONFile(f"{self.searchFileName}{prevAnalysisTag}_{numberInQueue}") #the results variable is in the eval statement below, don't worry
+            results = ReadJSONFile(f"{self.searchFileName}{prevAnalysisTag}_{numberInQueue}")
             analysisResults = analysisType(results)
             SaveDictAsJSON(f"{self.searchFileName}{newAnalysisTag}_{numberInQueue+1}", analysisResults)
+            print(f"{newAnalysisTag} analysis complete.")
             # ^ numberInQueue+1 starts from 1, hence numberInQueue without the +1 is the previous numberInQueue
+            numOfMatInPrevAnal = len(list(results.keys()))
+            numOfMatInCurrentAnal = len(list(analysisResults.keys()))
+            print(f"{numOfMatInCurrentAnal} materials identified.")
+            print(f"{numOfMatInPrevAnal-numOfMatInCurrentAnal} materials removed from previous analysis ({prevAnalysisTag}).")
         else:
             print(f"{newAnalysisTag} analysis has already been done for search {self.searchFileName}.")
 
@@ -184,6 +194,62 @@ class Analysis:
 
         print(f"Toxic elements {toxicElements} removed. {len(noToxicElemResults.keys())} materials remain.")
         return noToxicElemResults
-                
+
+
+    def MutuallyExclusiveElements(self, results):
+        mutuallyExclusiveResults = {}
+        for material in results:
+            formula = results[material]["pretty_formula"]
+            listOfElemPresent = Analysis.DisplayElements(formula)
+            counter = 0 #the counter should never exceed 1 (not mutually exclusive if >1)
+            for elem in self.mutuallyExclusiveElementList:
+                if(elem in listOfElemPresent):
+                    counter += 1 #one of the mutually exlusive elements is present
+                    if(counter > 1): #a second element from the mutually exclusive list is in this material - don't want it, move on
+                        break
+            if(counter == 1): #only if one of the materials from self.mutuallyExclusiveElementList is present can the material move on to the next stage
+                mutuallyExclusiveResults[material] = results[material]
         
+        return mutuallyExclusiveResults
+
+    def OnlyChosenCDElements(self, results): #due to time constraints, this will be awkwardly appended to the end of the mutually exclusive analysis
+        chosenCDElemResults = {}
+        for material in results:
+            CDElem = results[material]["CDelement"]
+            if(CDElem in self.mutuallyExclusiveElementList):
+                chosenCDElemResults[material] = results[material]
+        return chosenCDElemResults
+
+    #specific filters, no longer general - used for ReducedSearch1 and ReducedSearch2
+    @staticmethod
+    def KeepOnlyOxyAnion(results):
+        oxyResults = {}
+        for material in results:
+            oxStates = results[material]["OxStates"]
+            #need to then identify the oxidation states that contain a zero, then remove the material
+            nonOxyAnions = 0
+            for oxState in oxStates:
+                oxyRegex = re.compile(f'[O-]')
+                checkingForOxy = oxyRegex.findall(oxState)
+                if("-" in checkingForOxy and "O" not in checkingForOxy):
+                    nonOxyAnions += 1
+            if(nonOxyAnions == 0): #if only oxy (O^z- anions present), save material
+                oxyResults[material] = results[material]
+        return oxyResults
+
+    @staticmethod
+    def RedSearchSpecificOS(results): #requires OnlyChosenCDElements to be applied first
+        specificOSResults = {}
+        specificOxStates = {"Sn": ["Sn2+", "Sn4+"],
+                            "Pb": ["Pb2+", "Pb4+"],
+                            "Sb": ["Sb3+", "Sb5+"],
+                            "Bi": ["Bi3+", "Bi5+"]}
+        for material in results:
+            CDElem = results[material]["CDelement"]
+            oxStates = results[material]["OxStates"]
+            expectedOxStates = specificOxStates[CDElem]
+            if(all(elem in oxStates  for elem in expectedOxStates)):
+                specificOSResults[material] = results[material]
+        return specificOSResults
+
 

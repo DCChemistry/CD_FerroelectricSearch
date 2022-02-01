@@ -7,13 +7,14 @@ import math
 from Util import SaveDictAsJSON, ReadJSONFile
 import matplotlib.pyplot as plt
 import glob #for unix style searching
+from datetime import datetime
 
 
 def OxidationStateCalc(formula):
     """Returns a pymatgen list-like object of elements with their respective oxidation states (OS) from a given chemical
     formula."""
     chemical = Composition(formula) #converting formula to pymatgen Composition object
-    oxStates = list(chemical.add_charges_from_oxi_state_guesses())
+    oxStates = list(chemical.add_charges_from_oxi_state_guesses(max_sites=-1)) #max_sites=-1 fully reduces the formula for oxidation calc
     oxStates = [str(element) for element in oxStates]
     return oxStates #returns the number of elements, each with a charge assigned
                                                          #(multiple instances of an element with different charges will be
@@ -29,17 +30,15 @@ def SiteCentredCO(material):
     #you get hellish results), e.g. ["Z", "n"]
 
     #v removes the charge from each element, e.g. Fe2+ and Fe3+ -> Fe and Fe
-    oxStates = [alphabetRegex.findall(element)[0] for element in oxStates]
+    oxStatesAlphaRegex = [alphabetRegex.findall(element)[0] for element in oxStates]
     #^ alphabetRegex.findall() looks for the occurence of letters in each OS and returns an array with the string.
     #Need [0] to pop the result (the string) out of the array (of length 1).
     
-    elements = list(set(oxStates)) #done to remove duplicates - this is done to avoid analysing an element for CD more than once
+    elements = list(set(oxStatesAlphaRegex)) #done to remove duplicates - this is done to avoid analysing an element for CD more than once
     for element in elements:
-        instances = oxStates.count(element) #originally, this was "elements.count(element)", which was using the non-duplicate
-                                            #list. Hence why the try below always failed, since no CO materials could ever be
-                                            #found
+        instances = oxStatesAlphaRegex.count(element)
         if(instances>1):
-            return material, element
+            return material, element, oxStates
 
 class CheckForCD:
 
@@ -66,7 +65,9 @@ class CheckForCD:
 
     def CheckForCDTaskMaster(self, results, taskNo):
         SaveDictAsJSON(f"{self.fileName}_task_{taskNo}", self.CheckForCD(results))
-        print(f"Task {taskNo}/{self.noOfTasks} complete!")
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        print(f"[{current_time}]: Task {taskNo}/{self.noOfTasks} complete!")
 
     def CheckForCD(self, results):
 
@@ -75,7 +76,7 @@ class CheckForCD:
         for material in results:
             try:
                 formula = material["pretty_formula"]
-                COmaterial, CDelement = SiteCentredCO(formula)
+                COmaterial, CDelement, oxStates = SiteCentredCO(formula)
                 siteCOmaterials[material["material_id"]] = {
                         "pretty_formula": COmaterial,
                         "spacegroup.number": material["spacegroup.number"],
@@ -83,7 +84,8 @@ class CheckForCD:
                         "nsites": material["nsites"],
                         "e_above_hull": material["e_above_hull"],
                         "nelements": material["nelements"],
-                        "CDelement": CDelement
+                        "CDelement": CDelement,
+                        "OxStates": oxStates
                 }
 
             except TypeError:
