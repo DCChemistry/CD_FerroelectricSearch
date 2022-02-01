@@ -4,9 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Util import *
 from ChargeDisproportation import * #this imports all functions, variables and classes within the
-#ChargeDisproportionation.py file
+                                    #ChargeDisproportionation.py file
 import os
-import time
 from Analysis import*
     
 
@@ -55,7 +54,7 @@ def AtomicSymbols(listOfAtomicNumbers, removeFromPeriodicTable = False): #this i
         return elementSymbols
 
 
-def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None, mutuallyExclusive=False, noOfTasks=1024):
+def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None, noOfTasks=1024):
     print("\n\nHello, and welcome to your database search!")
     
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
@@ -90,12 +89,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None
 
     CheckForCD(results, searchFileName, noOfTasks)
 
-    #first checks if analysis is necessary AND elements are mutually exclusive, then checks if just analysis is necessary (Without mutual exclusivity)
-    if(orderOfFilters != None and mutuallyExclusive == True): #if you want analysis, and you want the elements to be mutually exclusive
-        Analysis(searchFileName, orderOfFilters, mutuallyExclusiveElementList=elementList)
-    elif(orderOfFilters != None): #if you want analysis to be called (further filters beyond CD), supply an orderOfFilters list
-        Analysis(searchFileName, orderOfFilters)
-
+    Analysis(searchFileName, orderOfFilters, elementList)
 
 
 
@@ -109,8 +103,8 @@ def main():
     excludedElementsRedSearch2 = AddElementLists(transitionMetalSymbols, radElements, notableAnions)
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements, orderOfFilters=["NP", "oneCDSite"])
-    DatabaseSearch("ReducedSearch1", ["Sn", "Sb", "Pb", "Bi"], excludedElementsRedSearch1, orderOfFilters=["NP"], mutuallyExclusive=True, noOfTasks=300)
-    DatabaseSearch("ReducedSearch2", ["Bi"], excludedElementsRedSearch2, orderOfFilters=["NP"], noOfTasks=300)
+    DatabaseSearch("ReducedSearch1", ["Sn", "Sb", "Pb", "Bi"], excludedElementsRedSearch1, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS"], noOfTasks=300)
+    DatabaseSearch("ReducedSearch2", ["Bi"], excludedElementsRedSearch2, orderOfFilters=["NP", "onlyOxy", "chosenCDElem", "specOS"], noOfTasks=300)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     #import cProfile

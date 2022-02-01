@@ -11,10 +11,10 @@ import re
 
 class Analysis:
 
-    def __init__(self, searchFileName, orderOfFilters, mutuallyExclusiveElementList=None): #orderOfFilters will now be in DatabaseSearch
+    def __init__(self, searchFileName, orderOfFilters, elementList):
         #orderOfFilters is the order of the keys from 'filters' dictionary
         self.searchFileName = searchFileName
-        self.mutuallyExclusiveElementList = mutuallyExclusiveElementList
+        self.elementList = elementList
 
         #keys are the 'codes' appended to a certain file
         filters = {
@@ -22,7 +22,11 @@ class Analysis:
                     "oneCDSite": Analysis.OneCDSite,
                     "BAndT": Analysis.BinAndTern,
                     "lt16sites": Analysis.LTorEQ16Sites,
-                    "noTox": Analysis.NoToxicElements
+                    "noTox": Analysis.NoToxicElements,
+                    "onlyOxy": Analysis.KeepOnlyOxyAnion,
+                    "chosenCDElem": self.OnlyChosenCDElements,
+                    "specOS": self.RedSearchSpecificOS,
+                    "ME": self.MutuallyExclusiveElements
         }
 
         for counter, filter in enumerate(orderOfFilters):
@@ -30,10 +34,6 @@ class Analysis:
                 self.ReadAnalyseWrite(filters[filter], "CD", filter, counter)
             else:
                 self.ReadAnalyseWrite(filters[filter], orderOfFilters[counter-1], filter, counter)
-
-            if(self.mutuallyExclusiveElementList != None): #only if a list of elements that you want to be mutually exclusive in compounds, apply ME filter
-                self.ReadAnalyseWrite(self.MutuallyExclusiveElements, orderOfFilters[-1], "ME", len(orderOfFilters))
-                #self.ReadAnalyseWrite(self.OnlyChosenCDElements, "ME", "chosenCD", len(orderOfFilters)+1)
 
 
     def ReadAnalyseWrite(self, analysisType, prevAnalysisTag, newAnalysisTag, numberInQueue): #numberInQueue is to show the order each filter was applied in
@@ -202,21 +202,21 @@ class Analysis:
             formula = results[material]["pretty_formula"]
             listOfElemPresent = Analysis.DisplayElements(formula)
             counter = 0 #the counter should never exceed 1 (not mutually exclusive if >1)
-            for elem in self.mutuallyExclusiveElementList:
+            for elem in self.elementList:
                 if(elem in listOfElemPresent):
                     counter += 1 #one of the mutually exlusive elements is present
                     if(counter > 1): #a second element from the mutually exclusive list is in this material - don't want it, move on
                         break
-            if(counter == 1): #only if one of the materials from self.mutuallyExclusiveElementList is present can the material move on to the next stage
+            if(counter == 1): #only if one of the materials from self.elementList is present can the material move on to the next stage
                 mutuallyExclusiveResults[material] = results[material]
         
         return mutuallyExclusiveResults
 
-    def OnlyChosenCDElements(self, results): #due to time constraints, this will be awkwardly appended to the end of the mutually exclusive analysis
+    def OnlyChosenCDElements(self, results):
         chosenCDElemResults = {}
         for material in results:
             CDElem = results[material]["CDelement"]
-            if(CDElem in self.mutuallyExclusiveElementList):
+            if(CDElem in self.elementList):
                 chosenCDElemResults[material] = results[material]
         return chosenCDElemResults
 
@@ -237,9 +237,9 @@ class Analysis:
                 oxyResults[material] = results[material]
         return oxyResults
 
-    @staticmethod
-    def RedSearchSpecificOS(results): #requires OnlyChosenCDElements to be applied first
+    def RedSearchSpecificOS(self, results): #requires OnlyChosenCDElements to be applied first
         specificOSResults = {}
+        specOSRejects = {}
         specificOxStates = {"Sn": ["Sn2+", "Sn4+"],
                             "Pb": ["Pb2+", "Pb4+"],
                             "Sb": ["Sb3+", "Sb5+"],
@@ -250,6 +250,9 @@ class Analysis:
             expectedOxStates = specificOxStates[CDElem]
             if(all(elem in oxStates  for elem in expectedOxStates)):
                 specificOSResults[material] = results[material]
+            else:
+                specOSRejects[material] = results[material]
+        SaveDictAsJSON(f"{self.searchFileName}specOSRejects", specOSRejects) #saving a file of the rejects
         return specificOSResults
 
 
