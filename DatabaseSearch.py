@@ -32,31 +32,9 @@ def NonRadElements():
     nonRadElements = ListOfTheElements(radElements) #list of elements to search with
     return nonRadElements, radElementSymbols
 
-def AddElementLists(*elementLists):
-    """Combines any number of lists of element symbols, removing duplicates"""
-    combinedElemList = []
-    for elementList in elementLists:
-        combinedElemList.extend(elementList)
-    
-    #now removing duplicates
-    combinedElemList = list(dict.fromkeys(combinedElemList)) #this removes duplicates - make list into dict (no duplicate keys), then back into list
-    return combinedElemList
 
-def AtomicSymbols(listOfAtomicNumbers, removeFromPeriodicTable = False): #this is a more generic version of the NonRadElements function
-    """Takes a list of atomic numbers and returns a list of the respective atomic symbols.
-    If removeFromPeriodicTable = True, then the elements given will be removed from the periodic table using ListOfTheElements,
-    and return the remaining elements."""
-
-    if(removeFromPeriodicTable == True):
-        tableWithElemExcluded = ListOfTheElements(listOfAtomicNumbers)
-        return tableWithElemExcluded
-    else:
-        elementSymbols = [str(Element.from_Z(elem)) for elem in listOfAtomicNumbers]
-        return elementSymbols
-
-
-def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None, mutuallyExclusive=False, noOfTasks=1024):
-    print("\n\nHello, and welcome to your database search!")
+def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters, noOfTasks=1024):
+    print("Hello, and welcome to your database search!")
     
     if(not os.path.isfile(f"{searchFileName}.json")): #if given file doesn't exist, then run the search
         print(f"{searchFileName}.json not found. Creating file and querying the Materials Project Database.")
@@ -70,7 +48,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None
         results = None #done so that results exists outside the scope of the with block
         with MPRester(APIkey) as mpr:
  
-            criteria = {"elements": {"$in": elementList, "$nin": excludeList}, "nsites": {"$lt": 50}, "nelements": {"$eq": 3}} #added "nsites" onwards for ReducedSearch1
+            criteria = {"elements": {"$in": elementList, "$nin": excludeList}}
             # ^ want to find materials that contain any of the listed elements, hence $in, $nin excludes elements in given list,
             # and $gt is simply 'greater than' - ferroelectrics are insulators, and DFT underestimates band gaps greatly,
             # so if the band gap is > 0, that means the band gap is sizeable (likely insulator). NEW, RUN THIS SOON
@@ -87,30 +65,20 @@ def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None
         print(f"File {searchFileName}.json found. Loading file.")
         results = ReadJSONFile(searchFileName)
 
-
+    t1 = time.time()
     CheckForCD(results, searchFileName, noOfTasks)
-
-    #first checks if analysis is necessary AND elements are mutually exclusive, then checks if just analysis is necessary (Without mutual exclusivity)
-    if(orderOfFilters != None and mutuallyExclusive == True): #if you want analysis, and you want the elements to be mutually exclusive
-        Analysis(searchFileName, orderOfFilters, mutuallyExclusiveElementList=elementList)
-    elif(orderOfFilters != None): #if you want analysis to be called (further filters beyond CD), supply an orderOfFilters list
-        Analysis(searchFileName, orderOfFilters)
-
+    #MultiProcessing(searchFileName, "NP", Analysis.NonPolar)
+    Analysis(searchFileName, orderOfFilters)
+    t2 = time.time()
+    print(f"Task took {t2-t1:.2f} s")
 
 
 
 
 def main():
     nonRadElements, radElements = NonRadElements()
-    transitionMetalNos = list(np.arange(21, 31))+list(np.arange(39, 49))+list(np.arange(72, 81))+list(np.arange(104, 113))
-    transitionMetalSymbols = AtomicSymbols(transitionMetalNos)
-    excludedElementsRedSearch1 = AddElementLists(transitionMetalSymbols, radElements)
-    notableAnions = ["F", "Cl", "Br", "I", "N"]
-    excludedElementsRedSearch2 = AddElementLists(transitionMetalSymbols, radElements, notableAnions)
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
-    #DatabaseSearch("NonRadSearch2", nonRadElements, radElements, orderOfFilters=["NP", "oneCDSite"])
-    DatabaseSearch("ReducedSearch1", ["Sn", "Sb", "Pb", "Bi"], excludedElementsRedSearch1, orderOfFilters=["NP"], mutuallyExclusive=True, noOfTasks=300)
-    DatabaseSearch("ReducedSearch2", ["Bi"], excludedElementsRedSearch2, orderOfFilters=["NP"], noOfTasks=300)
+    DatabaseSearch("NonRadSearch2", nonRadElements, radElements, ["NP", "oneCDSite"])
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     #import cProfile

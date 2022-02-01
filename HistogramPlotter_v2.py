@@ -8,11 +8,9 @@ import matplotlib.pyplot as plt
 from Util import SaveDictAsJSON, ReadJSONFile
 import numpy as np
 import os
-from Analysis import *
-from datetime import datetime
     
 
-def HistogramMaker(CDResults, fileName):
+def HistogramMaker(CDResults):
     """Takes CheckForCD results in JSON format (dict), and returns histograms for each property that was requested in the original
     MAPI query."""
    
@@ -30,27 +28,6 @@ def HistogramMaker(CDResults, fileName):
             counter[element] += 1 #then increase the count by 1 for that item
         else: #if item (key) isn't already 
             counter[element] = 1
-    
-    #NEW STUFF - normalisation of CDElem freq
-    origResults = ReadJSONFile(fileName)
-    nosOfMaterialsWithCDElems = []
-    for i, elem in enumerate(counter.keys()):
-        noOfMaterialsWithElem = 0
-        for material in origResults:
-            elementsInMaterial = Analysis.DisplayElements(material["pretty_formula"])
-            if(elem in elementsInMaterial):
-                noOfMaterialsWithElem += 1
-        nosOfMaterialsWithCDElems.append(noOfMaterialsWithElem)
-        print(f"{elem}: Original = {noOfMaterialsWithElem}, CD = {list(counter.values())[i]} -> Percentage: {(list(counter.values())[i]/noOfMaterialsWithElem)*100:.2f}")
-
-    normalisedFrequencies = []
-    for i in range(len(counter.values())):
-        normalisedFrequencies.append(list(counter.values())[i]/nosOfMaterialsWithCDElems[i])
-    
-    percentageCD = list(np.array(normalisedFrequencies)*100)
-
-    counter = dict(zip(counter.keys(), percentageCD))
-
     counter = {k: v for k, v in sorted(counter.items(), key=lambda item: item[1], reverse=True)} #reverse=True inverts the sorted order.
     # ^ https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
     
@@ -59,12 +36,12 @@ def HistogramMaker(CDResults, fileName):
     plt.bar(range(len(counter)), counter.values(), align="center")
     plt.xticks(range(len(counter)))
     plt.title("CDelement Frequency")
-    plt.ylabel("Percentage of materials with CD")
+    plt.ylabel("No. of materials")
     plt.xlabel("Charge disproportionation elements")
 
     plt.xticks(range(len(counter)), [key[0:5] for key in list(counter.keys())])
     plt.tight_layout()
-    plt.savefig(f"{folderName}/{fileName}Freq.png", dpi=300, bbox_inches="tight")
+    plt.savefig(f"{folderName}/NonRadSearchFreq.png", dpi=300, bbox_inches="tight")
 
     #Energy above hull plot
     blankLists = []
@@ -81,15 +58,13 @@ def HistogramMaker(CDResults, fileName):
         CDElem = CDResults[id]["CDelement"] #gets me the correct key for eAboveHullForCDElem
         eAboveHull = CDResults[id]["e_above_hull"] #gives me the e_above_hull I want to append to the respective list
         if(eAboveHull==None):
-            print(f"{id} has e_above_hull=null")
             nullCases.update({id: CDResults[id]})
             # ^ for some reason, some entries have 'null' as their e_above_hull value, despite the web site entries having values
         else:
             eAboveHullForCDElem[CDElem].append(eAboveHull) #appending the e_above_hull to the appropriate list
-    if(len(nullCases.keys()) > 0):
-        SaveDictAsJSON(f"Energy_above_hull_is_null_{fileName}", nullCases, indent=4)
+    SaveDictAsJSON("Energy_above_hull_is_null", nullCases, indent=4)
     
-    eAboveHullForCDElem = {k:np.mean(v) for (k,v) in eAboveHullForCDElem.items()}
+    eAboveHullForCDElem = {k:float(f"{np.mean(v):.2e}") for (k,v) in eAboveHullForCDElem.items()}
     # ^ converting the e_above_hull lists into averages in scientific (exponent) notation
     plt.figure(figsize=(12, 5))
     plt.bar(range(len(eAboveHullForCDElem)), eAboveHullForCDElem.values(), align="center")
@@ -100,7 +75,7 @@ def HistogramMaker(CDResults, fileName):
     
     plt.xticks(range(len(counter)), [key[0:5] for key in list(counter.keys())])
     plt.tight_layout()
-    plt.savefig(f"{folderName}/{fileName}Hull.png", dpi=300, bbox_inches="tight")
+    plt.savefig(f"{folderName}/NonRadSearchHull.png", dpi=300, bbox_inches="tight")
 
         
         
@@ -127,5 +102,5 @@ def HistogramMaker(CDResults, fileName):
     plt.title('Distribution of crystal systems within SiO2 compounds')
     plt.show()"""
 
-CDResults = ReadJSONFile("NonRadSearch2CD_0")
-HistogramMaker(CDResults, "NonRadSearch2")
+CDResults = ReadJSONFile("NonRadSearchCDCandidates")
+HistogramMaker(CDResults)
