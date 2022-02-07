@@ -8,6 +8,7 @@ import numpy as np #added just in case - may add numpy objects later
 import matplotlib.pyplot as plt
 import os
 import re
+from pymatgen.ext.matproj import MPRester #used for NoPolarVar()
 
 class Analysis:
 
@@ -21,12 +22,13 @@ class Analysis:
                     "NP": Analysis.NonPolar,
                     "oneCDSite": Analysis.OneCDSite,
                     "BAndT": Analysis.BinAndTern,
-                    "lt16sites": Analysis.LTorEQ16Sites,
+                    "lteq16sites": Analysis.LTorEQ16Sites,
                     "noTox": Analysis.NoToxicElements,
                     "onlyOxy": Analysis.KeepOnlyOxyAnion,
                     "chosenCDElem": self.OnlyChosenCDElements,
                     "specOS": self.RedSearchSpecificOS,
-                    "ME": self.MutuallyExclusiveElements
+                    "ME": self.MutuallyExclusiveElements,
+                    "NoPolarVar": Analysis.NoPolarVar
         }
 
         for counter, filter in enumerate(orderOfFilters):
@@ -254,5 +256,70 @@ class Analysis:
                 specOSRejects[material] = results[material]
         SaveDictAsJSON(f"{self.searchFileName}specOSRejects", specOSRejects) #saving a file of the rejects
         return specificOSResults
+
+    @staticmethod
+    def NoPolarVar(results): #ONLY USE WHEN THERE AREN'T MANY MATERIALS LEFT - USE AS LAST FILTER
+        #Code to get list of polar space groups taken from BlondeGeek (Smidt) on GitHub; also used in NonPolar() above:
+
+        # This is a list of the point groups as noted in pymatgen
+        point_groups = []
+        for i in range(1,231):
+            symbol = sg_symbol_from_int_number(i)
+            point_groups.append(SYMM_DATA['space_group_encoding'][symbol]['point_group'])
+
+        # Note that there are 40 of them, rather than 32.
+
+        # This is because multiple conventions are used for the same point group.
+        # This dictionary can be used to convert between them.
+        point_group_conv = {'321' :'32', '312': '32', '3m1' :'3m', '31m': '3m',
+                            '-3m1' : '-3m', '-31m': '-3m', '-4m2': '-42m', '-62m': '-6m2' }
+
+        # Using this dictionary we can correct to the standard point group notation.
+        corrected_point_groups = [point_group_conv.get(pg, pg) for pg in point_groups]
+        # Which produces the correct number of point groups. 32.
+
+
+        # polar_point_groups = ['1', '2', 'm', 'mm2', '4', '4mm', '3', '3m', '3m1', '31m','6', '6mm']
+        # There are 10 polar point groups
+        polar_point_groups = ['1', '2', 'm', 'mm2', '4', '4mm', '3', '3m', '6', '6mm']
+
+        # Polar spacegroups have polar point groups.
+        polar_spacegroups = []
+        # There are 230 spacegroups
+        for i in range(1,231):
+            symbol = sg_symbol_from_int_number(i)
+            pg = SYMM_DATA['space_group_encoding'][symbol]['point_group']
+            if point_group_conv.get(pg, pg) in polar_point_groups:
+                polar_spacegroups.append(i)
+        # 68 of the 230 spacegroups are polar.
+
+
+
+        noPolarVarResults = {}
+        for material in results:
+            formula = results[material]["pretty_formula"]
+
+            #query structure copied from DatabaseSearch.py
+            APIkey = None #done so that APIkey is not lost in the scope of the with block
+            with open("APIkey.txt", "r") as f:
+                APIkey= f.read()
+
+            variants = None #done so that variants exists outside the scope of the with block
+            with MPRester(APIkey) as mpr:
+    
+                criteria = {"pretty_formula": {"$eq": formula}}
+
+                properties = ['material_id', 'spacegroup.number']
+                variants = mpr.query(criteria, properties, chunk_size=10000) #looking for all entries of a material
+                
+            polarCounter = 0
+            for i in range(len(variants)):
+                spacegroupNumber = variants[i]["spacegroup.number"]
+                if(spacegroupNumber in polar_spacegroups):
+                    polarCounter += 1
+            if(polarCounter == 0): #if a material doesn't have any polar variants, save it
+                noPolarVarResults[material] = results[material]            
+        
+        return noPolarVarResults
 
 
