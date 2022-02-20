@@ -10,6 +10,7 @@ seaborn = "*"
 pymatgen = "*"
 numpy = "*"
 snakeviz = "*"
+pandas = "*"
 
 [dev-packages]
 
