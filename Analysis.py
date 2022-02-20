@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import os
 import re
 from pymatgen.ext.matproj import MPRester #used for NoPolarVar()
+import numpy as np
+import pymatgen.analysis.local_env as localEnv
+import pandas as pd
 
 class Analysis:
 
@@ -28,7 +31,8 @@ class Analysis:
                     "chosenCDElem": self.OnlyChosenCDElements,
                     "specOS": self.RedSearchSpecificOS,
                     "ME": self.MutuallyExclusiveElements,
-                    "NoPolarVar": Analysis.NoPolarVar
+                    "NoPolarVar": Analysis.NoPolarVar,
+                    "SiteEquiv": Analysis.SiteEquivalence
         }
 
         for counter, filter in enumerate(orderOfFilters):
@@ -326,4 +330,88 @@ class Analysis:
         
         return noPolarVarResults
 
+    @staticmethod
+    def SiteEquivalence(results, tolerance=0.01): #tolerance: checking that bond lengths are within this margin of error
+        siteEquivalenceResults = {}
+        for material in results:
+            
+            print()
+            print(material)
+            
+            CDElem = results[material]["CDelement"]
+            structure = None
+            with MPRester() as mpr:
+                structure = mpr.get_structure_by_material_id(material)
+            neighbourInfoList = []
+            noOfAtoms = len(structure.as_dict()["sites"])
+            for i in range(noOfAtoms): #for each atom in the material
+                elem = structure.as_dict()["sites"][i]["species"][0]["element"]
+                if(elem==CDElem): #only looking for the neighbours of CD atoms
+                    neighbourInfo = {"atomType": [], "nnDistance": []}
+                    noOfNeighbours = len(localEnv.BrunnerNN_real().get_nn_info(structure, i))
+                    for j in range(noOfNeighbours): #for each of atom i's neighbours
+                        atomType = localEnv.BrunnerNN_real().get_nn_info(structure, i)[j]["site"]._species
+                        nnDistance = localEnv.BrunnerNN_real().get_nn_info(structure, i)[j]["site"].nn_distance
+                        neighbourInfo["atomType"].append(str(atomType)) #atomType is normally some non-standard object
+                        neighbourInfo["nnDistance"].append(nnDistance)
+                    neighbourInfoList.append(neighbourInfo)
 
+            neighbourDF = pd.DataFrame(data=neighbourInfoList)
+
+            sameNoOfNeighboursList = []
+            for i in range(neighbourDF.shape[0]):
+                for j in range(neighbourDF.shape[0]):
+                    if(i!=j and i<j): #if lists 1 and 2 have been compared, don't want to compare 2 and 1 (so i<j) and don't want to
+                                    #compare a list to itself (i!=j)
+                        sameNoOfNeighbours = len(list(neighbourDF["atomType"])[i]) == len(list(neighbourDF["atomType"])[j])
+                        sameNoOfNeighboursList.append(sameNoOfNeighbours)
+            print(f"Same no. of neighbours?: {sameNoOfNeighboursList}")
+
+            if(False not in sameNoOfNeighboursList): #if the no. of neighbours is the same in each list, False shouldn't be in the list
+                neighbourIdentityLists = list(neighbourDF["atomType"])
+
+                neighbourComparisonList = []
+                for i in range(neighbourDF.shape[0]):
+                    for j in range(neighbourDF.shape[0]):
+                        if(i!=j and i<j):
+                            neighbourComparison = set(neighbourIdentityLists[i]) == set(neighbourIdentityLists[j])
+                            neighbourComparisonList.append(neighbourComparison)
+                print(f"Same neighbouring atoms?: {neighbourComparisonList}")
+
+
+                if(False not in neighbourComparisonList):
+                    nnDistanceLists = list(neighbourDF["nnDistance"])
+                    nnDistanceLists = [list(np.sort(x)) for x in nnDistanceLists]
+                    # ^ lists contain numpy floats - need to use np.sort then convert back to list (don't want numpy array)
+                    # ^ want to compare distances one by one - if sites identical, the values should be sorted into the same order
+                    #(this avoids problems with distances to neighbours from a different site being counted in a different order)
+
+                    siteComparisonList = []
+                    for i in range(neighbourDF.shape[0]):
+                        for j in range(neighbourDF.shape[0]):
+                            if(i!=j and i<j):
+                                distanceComparisonList = []
+                                for k in range(len(nnDistanceLists[0])):
+                                    # ^ we've already established no. of neighbours equal for each site - can use first list to get no. of
+                                    #neighbours
+                                    distanceDiff = abs(nnDistanceLists[i][k]-nnDistanceLists[j][k])
+                                    distanceComparison = distanceDiff < tolerance
+                                    distanceComparisonList.append(distanceComparison)
+                                if(False not in distanceComparisonList):
+                                    siteComparisonList.append(True)
+                                elif(False in distanceComparisonList):
+                                    siteComparisonList.append(False)
+
+                    print(f"Same (within tolerance) distance to neighbours?: {siteComparisonList}")
+
+                    if(False not in siteComparisonList):
+                        print(f"Candidate found: {material}")
+                        siteEquivalenceResults[material] = results[material]
+                    else:
+                        print(f"{material} failed on nnDistance criterion.")
+                else:
+                    print(f"{material} failed on the atomType criterion.")
+            else:
+                print(f"{material} failed on the same no. of neighbours criterion.")
+
+        return siteEquivalenceResults
