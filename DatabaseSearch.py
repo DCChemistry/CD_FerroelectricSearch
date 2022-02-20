@@ -103,7 +103,7 @@ def main():
     excludedElementsRedSearch2 = AddElementLists(transitionMetalSymbols, radElements, notableAnions)
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
     #DatabaseSearch("NonRadSearch2", nonRadElements, radElements, orderOfFilters=["NP", "oneCDSite"])
-    DatabaseSearch("ReducedSearch1", ["Sn", "Sb", "Pb", "Bi"], excludedElementsRedSearch1, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq16sites", "noTox", "NoPolarVar"], noOfTasks=300)
+    DatabaseSearch("ReducedSearch1", ["Sn", "Sb", "Bi"], excludedElementsRedSearch1, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq30sites", "noTox", "NoPolarVar"], noOfTasks=300)
     #DatabaseSearch("ReducedSearch2", ["Bi"], excludedElementsRedSearch2, orderOfFilters=["NP", "onlyOxy", "chosenCDElem", "specOS"], noOfTasks=300)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below

@@ -22,7 +22,7 @@ class Analysis:
                     "NP": Analysis.NonPolar,
                     "oneCDSite": Analysis.OneCDSite,
                     "BAndT": Analysis.BinAndTern,
-                    "lteq16sites": Analysis.LTorEQ16Sites,
+                    "lteq30sites": Analysis.LTorEQ30Sites,
                     "noTox": Analysis.NoToxicElements,
                     "onlyOxy": Analysis.KeepOnlyOxyAnion,
                     "chosenCDElem": self.OnlyChosenCDElements,
@@ -161,16 +161,16 @@ class Analysis:
         return binAndTernResults
 
     @staticmethod
-    def LTorEQ16Sites(results):
-        print("Starting less than or equal to 16 sites (atoms in the cell) filtering.")
-        ltOrEq16Results = {}
+    def LTorEQ30Sites(results):
+        print("Starting less than or equal to 30 sites (atoms in the cell) filtering.")
+        ltOrEq30Results = {}
         for material in results:
             noOfSites = results[material]["nsites"]
-            if(noOfSites <= 16):
-                ltOrEq16Results[material] = results[material]
+            if(noOfSites <= 30):
+                ltOrEq30Results[material] = results[material]
         
-        print(f"Site filtering (<= 16) filtering complete. {len(ltOrEq16Results.keys())} materials found.")
-        return ltOrEq16Results
+        print(f"Site filtering (<= 30) filtering complete. {len(ltOrEq30Results.keys())} materials found.")
+        return ltOrEq30Results
 
     @staticmethod
     def DisplayElements(formula):
@@ -249,8 +249,12 @@ class Analysis:
         for material in results:
             CDElem = results[material]["CDelement"]
             oxStates = results[material]["OxStates"]
+            alphabetRegex = re.compile('[a-zA-Z]+')
+            oxStatesAlphaRegex = [alphabetRegex.findall(element)[0] for element in oxStates]
+            CDinstances = oxStatesAlphaRegex.count(CDElem)
+
             expectedOxStates = specificOxStates[CDElem]
-            if(all(elem in oxStates  for elem in expectedOxStates)):
+            if(all(elem in oxStates for elem in expectedOxStates) and len(specificOxStates[CDElem])==CDinstances):
                 specificOSResults[material] = results[material]
             else:
                 specOSRejects[material] = results[material]
