@@ -339,8 +339,13 @@ class Analysis:
             print(material)
             
             CDElem = results[material]["CDelement"]
-            structure = None
-            with MPRester() as mpr:
+
+            APIkey = None #done so that APIkey is not lost in the scope of the with block
+            with open("APIkey.txt", "r") as f:
+                APIkey= f.read()
+
+            structure = None #done so that structure exists outside the scope of the with block
+            with MPRester(APIkey) as mpr:
                 structure = mpr.get_structure_by_material_id(material)
             neighbourInfoList = []
             noOfAtoms = len(structure.as_dict()["sites"])
