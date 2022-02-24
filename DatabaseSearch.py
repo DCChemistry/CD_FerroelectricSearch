@@ -79,7 +79,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None
                                                                         #it speeds things up tremendously (asking for larger amounts of
                                                                         #data less often - latency - sending info back and forth takes
                                                                         # time)
-
+        print(f"{len(results)} materials found from your database query.")
         SaveDictAsJSON(searchFileName, results)
 
     else:
@@ -98,13 +98,11 @@ def main():
     nonRadElements, radElements = NonRadElements()
     transitionMetalNos = list(np.arange(21, 31))+list(np.arange(39, 49))+list(np.arange(72, 81))+list(np.arange(104, 113))
     transitionMetalSymbols = AtomicSymbols(transitionMetalNos)
-    excludedElementsRedSearch1 = AddElementLists(transitionMetalSymbols, radElements)
-    notableAnions = ["F", "Cl", "Br", "I", "N"]
-    excludedElementsRedSearch2 = AddElementLists(transitionMetalSymbols, radElements, notableAnions)
-    #DatabaseSearch("NonRadSearch2", nonRadElements, radElements)
-    #DatabaseSearch("NonRadSearch2", nonRadElements, radElements, orderOfFilters=["NP", "oneCDSite"])
-    DatabaseSearch("ReducedSearch1", ["Sn", "Sb", "Bi"], excludedElementsRedSearch1, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq30sites", "noTox", "NoPolarVar", "SiteEquiv"], noOfTasks=300)
-    #DatabaseSearch("ReducedSearch2", ["Bi"], excludedElementsRedSearch2, orderOfFilters=["NP", "onlyOxy", "chosenCDElem", "specOS"], noOfTasks=300)
+    fBlockElementNos = list(np.arange(58, 72))+list(np.arange(90, 104))
+    fBlockElementSymbols = AtomicSymbols(fBlockElementNos)
+    excludedElementsRedSearch = AddElementLists(transitionMetalSymbols, radElements, fBlockElementSymbols)
+
+    DatabaseSearch("ReducedSearch", ["Sn", "Sb", "Bi"], excludedElementsRedSearch, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq30sites", "noTox", "NoPolarVar", "SiteEquiv"], noOfTasks=300)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     #import cProfile
