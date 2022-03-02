@@ -100,9 +100,10 @@ def main():
     transitionMetalSymbols = AtomicSymbols(transitionMetalNos)
     fBlockElementNos = list(np.arange(58, 72))+list(np.arange(90, 104))
     fBlockElementSymbols = AtomicSymbols(fBlockElementNos)
-    excludedElementsRedSearch = AddElementLists(transitionMetalSymbols, radElements, fBlockElementSymbols)
+    toxicElementSymbols = ["Pb", "Cd", "As"]
+    excludedElementsRedSearch = AddElementLists(transitionMetalSymbols, radElements, fBlockElementSymbols, toxicElementSymbols)
 
-    DatabaseSearch("ReducedSearch", ["Sn", "Sb", "Bi"], excludedElementsRedSearch, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq30sites", "noTox", "NoPolarVar", "SiteEquiv"], noOfTasks=300)
+    DatabaseSearch("ReducedSearch", ["Sn", "Sb", "Bi"], excludedElementsRedSearch, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq30sites", "NoPolarVar", "SiteEquiv"], noOfTasks=300)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     #import cProfile
