@@ -1,7 +1,6 @@
 from pymatgen.ext.matproj import MPRester
 from pymatgen.core.periodic_table import Element
 import numpy as np
-import matplotlib.pyplot as plt
 from Util import *
 from ChargeDisproportation import * #this imports all functions, variables and classes within the
                                     #ChargeDisproportionation.py file
@@ -63,8 +62,24 @@ def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None
 
 
         APIkey = None #done so that APIkey is not lost in the scope of the with block
-        with open("APIkey.txt", "r") as f:
-            APIkey= f.read()
+        if(not os.path.isfile("APIkey.txt")): #if APIkey.txt doesn't exist, ask for key and create txt file
+            print("\nIt seems you do not have an API key saved.")
+            while(True):
+                APIkey = input("\nPlease input your API key: ")
+                print(f"Testing your given API key: {APIkey}")
+                with MPRester(APIkey) as mpr:
+                    try:
+                        mpr.get_structure_by_material_id("mp-149")
+                        print("API key is valid. Saving API key.")
+                        with open('APIkey.txt', 'w') as f:
+                            f.write(APIkey)
+                        break
+                    except:
+                        print(f"API key {APIkey} was invalid.")
+
+        else:
+            with open("APIkey.txt", "r") as f:
+                APIkey= f.read()
 
         results = None #done so that results exists outside the scope of the with block
         with MPRester(APIkey) as mpr:
