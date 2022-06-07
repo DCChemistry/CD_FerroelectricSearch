@@ -69,7 +69,7 @@ def DatabaseSearch(searchFileName, elementList, excludeList, orderOfFilters=None
         results = None #done so that results exists outside the scope of the with block
         with MPRester(APIkey) as mpr:
  
-            criteria = {"elements": {"$in": elementList, "$nin": excludeList}, "nsites": {"$lt": 50}, "nelements": {"$eq": 3}} #added "nsites" onwards for ReducedSearch1
+            criteria = {"elements": {"$in": elementList, "$nin": excludeList}, "nsites": {"$lte": 30}, "nelements": {"$eq": 3}} #added "nsites" onwards for ReducedSearch1
             # ^ want to find materials that contain any of the listed elements, hence $in, $nin excludes elements in given list,
             # and $gt is simply 'greater than' - ferroelectrics are insulators, and DFT underestimates band gaps greatly,
             # so if the band gap is > 0, that means the band gap is sizeable (likely insulator). NEW, RUN THIS SOON
@@ -103,7 +103,7 @@ def main():
     toxicElementSymbols = ["Pb", "Cd", "As"]
     excludedElementsRedSearch = AddElementLists(transitionMetalSymbols, radElements, fBlockElementSymbols, toxicElementSymbols)
 
-    DatabaseSearch("ReducedSearch", ["Sn", "Sb", "Bi"], excludedElementsRedSearch, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "lteq30sites", "NoPolarVar", "SiteEquiv"], noOfTasks=300)
+    DatabaseSearch("ReducedSearch", ["Sn", "Sb", "Bi"], excludedElementsRedSearch, orderOfFilters=["NP", "chosenCDElem", "ME", "specOS", "NoPolarVar", "SiteEquiv"], noOfTasks=300)
 
 if __name__ == "__main__": #if this file is run, call the chosen function below
     #import cProfile
